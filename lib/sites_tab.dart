@@ -547,7 +547,7 @@ class _SitesTabState extends State<SitesTab> {
                   child: ElevatedButton(
                     onPressed: () => Navigator.pushReplacement(
                       context,
-                      MaterialPageRoute(builder: (context) => const HomeScreen(username: 'Guest')),
+                      MaterialPageRoute(builder: (context) => const HomeScreen(username: 'Guest', role: '',)),
                     ),
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size(double.infinity, 48),

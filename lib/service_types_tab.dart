@@ -195,7 +195,7 @@ class _ServiceTypesTabState extends State<ServiceTypesTab> {
               onPressed: () => Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const HomeScreen(username: 'Guest'),
+                  builder: (context) => const HomeScreen(username: 'Guest', role: '',),
                 ),
               ),
               style: ElevatedButton.styleFrom(

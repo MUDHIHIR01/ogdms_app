@@ -246,7 +246,7 @@ class _TicketFormScreenState extends State<TicketFormScreen> {
                   onPressed: () => Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const HomeScreen(username: 'Guest'),
+                      builder: (context) => const HomeScreen(username: 'Guest', role: '',),
                     ),
                   ),
                   style: ElevatedButton.styleFrom(

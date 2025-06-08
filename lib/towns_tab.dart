@@ -217,7 +217,7 @@ class _TownsTabState extends State<TownsTab> {
               onPressed: () => Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const HomeScreen(username: 'Guest'),
+                  builder: (context) => const HomeScreen(username: 'Guest', role: '',),
                 ),
               ),
               style: ElevatedButton.styleFrom(

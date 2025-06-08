@@ -15,7 +15,8 @@ import 'package:untitled1/device_types_tab.dart';
 
 class HomeScreen extends StatefulWidget {
   final String username;
-  const HomeScreen({super.key, required this.username});
+  final String role;
+  const HomeScreen({super.key, required this.username, required this.role});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -26,8 +27,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String _searchQuery = '';
   Timer? _debounce;
 
-  // List of navigation items
-  final List<Map<String, dynamic>> _navItems = [
+  // List of navigation items for the drawer (all items)
+  final List<Map<String, dynamic>> _drawerNavItems = [
     {'title': 'Profile', 'icon': Icons.person, 'route': const ProfileTab()},
     {'title': 'Tickets', 'icon': Icons.confirmation_number, 'route': const TicketsTab()},
     {'title': 'Customers', 'icon': Icons.people, 'route': const CustomersTab()},
@@ -40,6 +41,21 @@ class _HomeScreenState extends State<HomeScreen> {
     {'title': 'Device Types', 'icon': Icons.devices, 'route': const DeviceTypesTab()},
   ];
 
+  // Base list of navigation items for the dashboard grid
+  final List<Map<String, dynamic>> _baseDashboardNavItems = [
+    {'title': 'Tickets', 'icon': Icons.confirmation_number, 'route': const TicketsTab()},
+    {'title': 'Leads', 'icon': Icons.leaderboard, 'route': const LeadsTab()},
+    {'title': 'Customers', 'icon': Icons.people, 'route': const CustomersTab()},
+    {'title': 'Notifications', 'icon': Icons.notifications, 'route': const NotificationsTab()},
+    {'title': 'Profile', 'icon': Icons.person, 'route': const ProfileTab()},
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    print('User role: ${widget.role}');
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -47,10 +63,22 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  // Filter nav items based on search query
+  // Filter nav items based on user role and search query for the dashboard
   List<Map<String, dynamic>> get _filteredNavItems {
-    if (_searchQuery.isEmpty) return _navItems;
-    return _navItems
+    List<Map<String, dynamic>> items;
+
+    // Filter dashboard items based on user role
+    if (widget.role == 'installer') {
+      items = _baseDashboardNavItems.where((item) => item['title'] != 'Leads').toList();
+    } else if (widget.role == 'dse') {
+      items = _baseDashboardNavItems.where((item) => item['title'] != 'Tickets').toList();
+    } else {
+      items = _baseDashboardNavItems; // Default or admin shows all
+    }
+
+    // Further filter based on search query
+    if (_searchQuery.isEmpty) return items;
+    return items
         .where((item) => item['title'].toString().toLowerCase().contains(_searchQuery.toLowerCase()))
         .toList();
   }
@@ -66,8 +94,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final double devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
     final double screenWidth = MediaQuery.of(context).size.width;
 
-    // Dynamic crossAxisCount based on screen width
-    final int crossAxisCount = screenWidth > 600 ? 4 : 3;
+    // Fixed crossAxisCount to 2 for two cards per row
+    const int crossAxisCount = 2;
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -135,7 +163,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       ),
                     ),
-                    ..._navItems.map((item) => _buildDrawerItem(
+                    ..._drawerNavItems.map((item) => _buildDrawerItem(
                       icon: item['icon'],
                       title: item['title'],
                       onTap: () {
@@ -217,7 +245,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: TextField(
                       controller: _searchController,
                       decoration: InputDecoration(
-                        hintText: 'Search tasks, customers, or leads...',
+                        hintText: 'Search tasks',
                         hintStyle: TextStyle(
                           color: Colors.white.withOpacity(0.7),
                           fontFamily: 'Nunito',

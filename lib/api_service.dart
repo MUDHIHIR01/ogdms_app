@@ -23,9 +23,9 @@ class ApiService {
       )
           .timeout(const Duration(seconds: 10));
 
-      print('Response status: ${response.statusCode}');
-      print('Response headers: ${response.headers}');
-      print('Response body: ${response.body}');
+      print('Login Response status: ${response.statusCode}');
+      print('Login Response headers: ${response.headers}');
+      print('Login Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -38,6 +38,7 @@ class ApiService {
             'access_token': data['access_token'],
             'token_type': data['token_type'],
             'user': data['user'],
+            'roles': data['roles'] ?? [],
           };
         }
         throw 'Invalid response format';
@@ -194,7 +195,7 @@ class ApiService {
     } on FormatException {
       throw 'Invalid JSON response';
     } catch (e) {
-      throw 'An unexpected error occurred';
+      rethrow;
     }
   }
 
@@ -233,6 +234,10 @@ class ApiService {
         headers: _getHeaders(),
       )
           .timeout(const Duration(seconds: 10));
+
+      print('getAuthenticatedUser Response status: ${response.statusCode}');
+      print('getAuthenticatedUser Response headers: ${response.headers}');
+      print('getAuthenticatedUser Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);

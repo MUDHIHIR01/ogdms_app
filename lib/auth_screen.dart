@@ -25,6 +25,32 @@ class AuthScreen extends StatelessWidget {
       );
     }
 
+    final inputDecoration = InputDecoration(
+      labelStyle: const TextStyle(color: Colors.grey),
+      prefixIconColor: const Color(0xFFDF0613),
+      suffixIconColor: const Color(0xFFDF0613),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Colors.grey),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Colors.grey),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Color(0xFFDF0613)),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Colors.red),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Colors.red),
+      ),
+    );
+
     return StatefulBuilder(
       builder: (context, setState) {
         return Scaffold(
@@ -82,9 +108,9 @@ class AuthScreen extends StatelessWidget {
                                     const SizedBox(height: 24),
                                     TextFormField(
                                       controller: _emailController,
-                                      decoration: const InputDecoration(
+                                      decoration: inputDecoration.copyWith(
                                         labelText: 'Email',
-                                        prefixIcon: Icon(Icons.email, color: Color(0xFFDF0613)),
+                                        prefixIcon: const Icon(Icons.email, size: 20),
                                       ),
                                       keyboardType: TextInputType.emailAddress,
                                       validator: (value) {
@@ -101,20 +127,19 @@ class AuthScreen extends StatelessWidget {
                                       const SizedBox(height: 16),
                                       TextFormField(
                                         controller: _passwordController,
-                                        decoration: InputDecoration(
+                                        decoration: inputDecoration.copyWith(
                                           labelText: 'Password',
-                                          prefixIcon: const Icon(Icons.lock, color: Color(0xFFDF0613)),
+                                          prefixIcon: const Icon(Icons.lock, size: 20),
                                           suffixIcon: IconButton(
                                             icon: Icon(
                                               _obscurePassword ? Icons.visibility : Icons.visibility_off,
-                                              color: const Color(0xFFDF0613),
+                                              size: 20,
                                             ),
                                             onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                                           ),
                                         ),
                                         obscureText: _obscurePassword,
-                                        validator: (value) =>
-                                        value!.isEmpty ? 'Please enter password' : null,
+                                        validator: (value) => value!.isEmpty ? 'Please enter password' : null,
                                       ),
                                     ],
                                     const SizedBox(height: 24),
@@ -131,13 +156,18 @@ class AuthScreen extends StatelessWidget {
                                                 _passwordController.text,
                                               );
                                               final user = result['user'];
-                                              final username =
-                                                  '${user['first_name']} ${user['last_name']}';
+                                              final username = '${user['first_name']} ${user['last_name']}';
+                                              final roles = result['roles'] as List<dynamic>?;
+                                              final role = roles != null && roles.isNotEmpty
+                                                  ? roles.first.toString().toLowerCase()
+                                                  : 'default';
                                               Navigator.pushReplacement(
                                                 context,
                                                 MaterialPageRoute(
-                                                  builder: (context) =>
-                                                      HomeScreen(username: username),
+                                                  builder: (context) => HomeScreen(
+                                                    username: username,
+                                                    role: role,
+                                                  ),
                                                 ),
                                               );
                                             } else {
@@ -162,7 +192,7 @@ class AuthScreen extends StatelessWidget {
                                           } catch (e) {
                                             String errorMessage;
                                             switch (e.toString()) {
-                                              case 'These credentials do not match our records.':
+                                              case 'The provided credentials are incorrect.':
                                                 errorMessage = 'Invalid email or password';
                                                 break;
                                               case 'No internet connection':
@@ -172,7 +202,7 @@ class AuthScreen extends StatelessWidget {
                                                 errorMessage = 'Request timed out. Please try again';
                                                 break;
                                               default:
-                                                errorMessage = 'These credentials do not match our records.';
+                                                errorMessage = 'An error occurred: $e';
                                             }
                                             showErrorSnackBar(errorMessage);
                                           } finally {
