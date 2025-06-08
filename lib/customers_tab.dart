@@ -13,23 +13,73 @@ class CustomersTab extends StatefulWidget {
 class _CustomersTabState extends State<CustomersTab> {
   late Future<List<Map<String, dynamic>>> _customersFuture;
   List<Map<String, dynamic>> _sites = [];
+  List<Map<String, dynamic>> _filteredCustomers = [];
+  final TextEditingController _searchController = TextEditingController();
+  bool _isLoadingSites = true;
 
   @override
   void initState() {
     super.initState();
-    _customersFuture = ApiService.getCustomers();
+    _customersFuture = _fetchCustomers();
     _loadSites();
+    _searchController.addListener(_filterCustomers);
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchCustomers() async {
+    try {
+      final customers = await ApiService.getCustomers();
+      _filteredCustomers = customers; // Initialize filtered list
+      return customers;
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load customers: $e', style: const TextStyle(fontFamily: 'Nunito', fontSize: 14)),
+          ),
+        );
+      }
+      return [];
+    }
   }
 
   void _loadSites() async {
     try {
       _sites = await ApiService.getSites();
-      setState(() {});
+      setState(() {
+        _isLoadingSites = false;
+      });
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading sites: $e', style: const TextStyle(fontSize: 14))),
-      );
+      if (mounted) {
+        setState(() {
+          _isLoadingSites = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load sites: $e', style: const TextStyle(fontFamily: 'Nunito', fontSize: 14)),
+          ),
+        );
+      }
     }
+  }
+
+  void _filterCustomers() {
+    _customersFuture.then((customers) {
+      final query = _searchController.text.toLowerCase();
+      setState(() {
+        _filteredCustomers = customers.where((customer) {
+          final name = customer['name']?.toLowerCase() ?? '';
+          final email = customer['email']?.toLowerCase() ?? '';
+          final phone = customer['phone']?.toLowerCase() ?? '';
+          return name.contains(query) || email.contains(query) || phone.contains(query);
+        }).toList();
+      });
+    });
+  }
+
+  void _refreshCustomers() {
+    setState(() {
+      _customersFuture = _fetchCustomers();
+    });
   }
 
   void _showCustomerActionSheet(BuildContext context, Map<String, dynamic>? customer) {
@@ -39,8 +89,11 @@ class _CustomersTabState extends State<CustomersTab> {
     final _idTypeController = TextEditingController(text: customer?['id_type'] ?? '');
     final _idNumberController = TextEditingController(text: customer?['id_number'] ?? '');
     final _tinNumberController = TextEditingController(text: customer?['tin_number'] ?? '');
+    final _addressController = TextEditingController(text: customer?['address'] ?? '');
+    final _latitudeController = TextEditingController(text: customer?['latitude']?.toString() ?? '');
+    final _longitudeController = TextEditingController(text: customer?['longitude']?.toString() ?? '');
     final _notesController = TextEditingController(text: customer?['notes'] ?? '');
-    String? _selectedSiteId = customer?['site_id'];
+    String? _selectedSiteId = customer?['site_id']?.toString();
     final _formKey = GlobalKey<FormState>();
     bool _createTicket = false;
 
@@ -48,9 +101,9 @@ class _CustomersTabState extends State<CustomersTab> {
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
       ),
-      builder: (context) => StatefulBuilder( // Added StatefulBuilder to update checkbox state
+      builder: (context) => StatefulBuilder(
         builder: (BuildContext context, StateSetter modalSetState) {
           return DraggableScrollableSheet(
             initialChildSize: 0.9,
@@ -65,113 +118,139 @@ class _CustomersTabState extends State<CustomersTab> {
                   key: _formKey,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         customer == null ? 'Add Customer' : 'Edit Customer',
-                        style: const TextStyle(fontFamily: 'Nunito', fontSize: 16),
+                        style: const TextStyle(
+                          fontFamily: 'Nunito',
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
                         value: _selectedSiteId,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Site',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.location_on, color: Color(0xFFDF0613)),
+                          filled: true,
+                          fillColor: Colors.grey[100],
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFFDF0613), width: 1),
+                          ),
+                          prefixIcon: const Icon(Icons.location_on, color: Color(0xFFDF0613)),
                         ),
+                        hint: _isLoadingSites
+                            ? const Text('Loading sites...', style: TextStyle(fontFamily: 'Nunito', fontSize: 14))
+                            : _sites.isEmpty
+                            ? const Text('No sites available', style: TextStyle(fontFamily: 'Nunito', fontSize: 14))
+                            : const Text('Select a site', style: TextStyle(fontFamily: 'Nunito', fontSize: 14)),
                         items: _sites.map((site) {
                           return DropdownMenuItem<String>(
-                            value: site['id'],
-                            child: Text(site['name'] ?? 'Unknown Site', style: const TextStyle(fontSize: 14)),
+                            value: site['id'].toString(),
+                            child: Text(
+                              site['name'] ?? 'Unknown Site',
+                              style: const TextStyle(fontFamily: 'Nunito', fontSize: 14),
+                            ),
                           );
                         }).toList(),
-                        onChanged: (value) => _selectedSiteId = value,
-                        validator: (value) => value == null ? 'Select a site' : null,
+                        onChanged: _isLoadingSites || _sites.isEmpty
+                            ? null
+                            : (value) => modalSetState(() => _selectedSiteId = value),
+                        validator: (value) => value == null ? 'Please select a site' : null,
                       ),
                       const SizedBox(height: 12),
-                      TextFormField(
+                      _buildTextFormField(
                         controller: _nameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Name',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.person, color: Color(0xFFDF0613)),
-                        ),
-                        style: const TextStyle(fontSize: 14),
+                        label: 'Name',
+                        icon: Icons.person,
                         validator: (value) => value!.isEmpty ? 'Enter name' : null,
                       ),
                       const SizedBox(height: 12),
-                      TextFormField(
+                      _buildTextFormField(
                         controller: _emailController,
-                        decoration: const InputDecoration(
-                          labelText: 'Email',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.email, color: Color(0xFFDF0613)),
-                        ),
+                        label: 'Email',
+                        icon: Icons.email,
                         keyboardType: TextInputType.emailAddress,
-                        style: const TextStyle(fontSize: 14),
                         validator: (value) => value!.isEmpty ? 'Enter email' : null,
                       ),
                       const SizedBox(height: 12),
-                      TextFormField(
+                      _buildTextFormField(
                         controller: _phoneController,
-                        decoration: const InputDecoration(
-                          labelText: 'Phone',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.phone, color: Color(0xFFDF0613)),
-                        ),
+                        label: 'Phone',
+                        icon: Icons.phone,
                         keyboardType: TextInputType.phone,
-                        style: const TextStyle(fontSize: 14),
                         validator: (value) => value!.isEmpty ? 'Enter phone' : null,
                       ),
                       const SizedBox(height: 12),
-                      TextFormField(
+                      _buildTextFormField(
+                        controller: _addressController,
+                        label: 'Address',
+                        icon: Icons.home,
+                        validator: (value) => value!.isEmpty ? 'Enter address' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildTextFormField(
+                        controller: _latitudeController,
+                        label: 'Latitude',
+                        icon: Icons.map,
+                        keyboardType: TextInputType.number,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildTextFormField(
+                        controller: _longitudeController,
+                        label: 'Longitude',
+                        icon: Icons.map,
+                        keyboardType: TextInputType.number,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildTextFormField(
                         controller: _idTypeController,
-                        decoration: const InputDecoration(
-                          labelText: 'ID Type',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.badge, color: Color(0xFFDF0613)),
-                        ),
-                        style: const TextStyle(fontSize: 14),
+                        label: 'ID Type',
+                        icon: Icons.badge,
                       ),
                       const SizedBox(height: 12),
-                      TextFormField(
+                      _buildTextFormField(
                         controller: _idNumberController,
-                        decoration: const InputDecoration(
-                          labelText: 'ID Number',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.badge, color: Color(0xFFDF0613)),
-                        ),
-                        style: const TextStyle(fontSize: 14),
+                        label: 'ID Number',
+                        icon: Icons.badge,
                       ),
                       const SizedBox(height: 12),
-                      TextFormField(
+                      _buildTextFormField(
                         controller: _tinNumberController,
-                        decoration: const InputDecoration(
-                          labelText: 'TIN Number',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.numbers, color: Color(0xFFDF0613)),
-                        ),
-                        style: const TextStyle(fontSize: 14),
+                        label: 'TIN Number',
+                        icon: Icons.numbers,
                       ),
                       const SizedBox(height: 12),
-                      TextFormField(
+                      _buildTextFormField(
                         controller: _notesController,
-                        decoration: const InputDecoration(
-                          labelText: 'Notes',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.note, color: Color(0xFFDF0613)),
-                        ),
+                        label: 'Notes',
+                        icon: Icons.note,
                         maxLines: 3,
-                        style: const TextStyle(fontSize: 14),
                       ),
                       if (customer == null) ...[
                         const SizedBox(height: 12),
                         CheckboxListTile(
-                          title: const Text('Create installation ticket', style: TextStyle(fontSize: 14)),
+                          title: const Text(
+                            'Create installation ticket',
+                            style: TextStyle(fontFamily: 'Nunito', fontSize: 14),
+                          ),
                           value: _createTicket,
-                          onChanged: (value) => modalSetState(() => _createTicket = value!), // Use modalSetState
+                          onChanged: (value) => modalSetState(() => _createTicket = value!),
+                          activeColor: const Color(0xFFDF0613),
                         ),
                       ],
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       ElevatedButton(
                         onPressed: () async {
                           if (_formKey.currentState!.validate()) {
@@ -180,6 +259,9 @@ class _CustomersTabState extends State<CustomersTab> {
                               'name': _nameController.text,
                               'email': _emailController.text,
                               'phone': _phoneController.text,
+                              'address': _addressController.text,
+                              'latitude': _latitudeController.text.isEmpty ? null : double.tryParse(_latitudeController.text),
+                              'longitude': _longitudeController.text.isEmpty ? null : double.tryParse(_longitudeController.text),
                               'id_type': _idTypeController.text,
                               'id_number': _idNumberController.text,
                               'tin_number': _tinNumberController.text,
@@ -189,7 +271,7 @@ class _CustomersTabState extends State<CustomersTab> {
                               String? customerId;
                               if (customer == null) {
                                 final response = await ApiService.createCustomer(customerData);
-                                customerId = response['id'];
+                                customerId = response['id']?.toString();
                                 if (_createTicket && customerId != null) {
                                   await ApiService.createTicket({
                                     'title': 'Installation for ${customerData['name']}',
@@ -201,31 +283,50 @@ class _CustomersTabState extends State<CustomersTab> {
                                   });
                                 }
                               } else {
-                                await ApiService.updateCustomer(customer['id'], customerData);
+                                await ApiService.updateCustomer(customer['id'].toString(), customerData);
                               }
                               Navigator.pop(context);
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Customer ${customer == null ? 'added' : 'updated'}', style: const TextStyle(fontSize: 14))),
+                                SnackBar(
+                                  content: Text(
+                                    'Customer ${customer == null ? 'added' : 'updated'} successfully',
+                                    style: const TextStyle(fontFamily: 'Nunito', fontSize: 14),
+                                  ),
+                                ),
                               );
-                              setState(() {
-                                _customersFuture = ApiService.getCustomers();
-                              });
+                              _refreshCustomers();
                             } catch (e) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Error: $e', style: const TextStyle(fontSize: 14))),
+                                SnackBar(
+                                  content: Text('Error: $e', style: const TextStyle(fontFamily: 'Nunito', fontSize: 14)),
+                                ),
                               );
                             }
                           }
                         },
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size(double.infinity, 48),
+                          backgroundColor: const Color(0xFFDF0613),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        child: Text(customer == null ? 'Add' : 'Update', style: const TextStyle(fontSize: 14)),
+                        child: Text(
+                          customer == null ? 'Add Customer' : 'Update Customer',
+                          style: const TextStyle(fontFamily: 'Nunito', fontSize: 14, fontWeight: FontWeight.w600),
+                        ),
                       ),
                       const SizedBox(height: 8),
                       TextButton(
                         onPressed: () => Navigator.pop(context),
-                        child: const Text('Cancel', style: TextStyle(fontSize: 14, color: Color(0xFFDF0613))),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(
+                            fontFamily: 'Nunito',
+                            fontSize: 14,
+                            color: Color(0xFFDF0613),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -235,99 +336,230 @@ class _CustomersTabState extends State<CustomersTab> {
           );
         },
       ),
+    ).whenComplete(() {
+      _nameController.dispose();
+      _emailController.dispose();
+      _phoneController.dispose();
+      _idTypeController.dispose();
+      _idNumberController.dispose();
+      _tinNumberController.dispose();
+      _addressController.dispose();
+      _latitudeController.dispose();
+      _longitudeController.dispose();
+      _notesController.dispose();
+    });
+  }
+
+  Widget _buildTextFormField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+    int maxLines = 1,
+  }) {
+    return TextFormField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: label,
+        filled: true,
+        fillColor: Colors.grey[100],
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFDF0613), width: 1),
+        ),
+        prefixIcon: Icon(icon, color: const Color(0xFFDF0613)),
+      ),
+      keyboardType: keyboardType,
+      style: const TextStyle(fontFamily: 'Nunito', fontSize: 14),
+      validator: validator,
+      maxLines: maxLines,
     );
   }
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    const primaryColor = Color(0xFFDF0613);
+    const backgroundColor = Colors.white;
+    const cardColor = Colors.white;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: const Text('Customers', style: TextStyle(color: Colors.white, fontSize: 16)),
-        backgroundColor: const Color(0xFFDF0613),
-        // Add this line to make the back arrow (and other AppBar icons) white
+        title: const Text(
+          'Customers',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontFamily: 'Nunito',
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: primaryColor,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search by name, email, or phone',
+                filled: true,
+                fillColor: Colors.grey[100],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: primaryColor, width: 1),
+                ),
+                prefixIcon: const Icon(Icons.search, color: primaryColor),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                  icon: const Icon(Icons.clear, color: primaryColor),
+                  onPressed: () {
+                    _searchController.clear();
+                    _filterCustomers();
+                  },
+                )
+                    : null,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              ),
+              style: const TextStyle(fontFamily: 'Nunito', fontSize: 14, color: Colors.black87),
+            ),
+          ),
           Expanded(
             child: FutureBuilder<List<Map<String, dynamic>>>(
               future: _customersFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const Center(child: CircularProgressIndicator(color: primaryColor));
                 }
                 if (snapshot.hasError) {
-                  return const Center(child: Text('Error loading customers', style: TextStyle(fontFamily: 'Nunito', fontSize: 14)));
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          'Error loading customers',
+                          style: TextStyle(fontFamily: 'Nunito', fontSize: 14),
+                        ),
+                        const SizedBox(height: 12),
+                        ElevatedButton(
+                          onPressed: _refreshCustomers,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: const Text(
+                            'Retry',
+                            style: TextStyle(fontFamily: 'Nunito', fontSize: 14),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
                 }
                 final customers = snapshot.data ?? [];
-                if (customers.isEmpty) {
+                if (_filteredCustomers.isEmpty && _searchController.text.isNotEmpty) {
                   return const Center(
-                    child: Text('No customers', style: TextStyle(fontFamily: 'Nunito', fontSize: 14)),
+                    child: Text(
+                      'No matching customers',
+                      style: TextStyle(fontFamily: 'Nunito', fontSize: 14),
+                    ),
+                  );
+                }
+                if (_filteredCustomers.isEmpty && customers.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      'No customers available',
+                      style: TextStyle(fontFamily: 'Nunito', fontSize: 14),
+                    ),
                   );
                 }
                 return ListView.builder(
                   padding: const EdgeInsets.all(12),
-                  itemCount: customers.length,
+                  itemCount: _filteredCustomers.length,
                   itemBuilder: (context, index) {
-                    final customer = customers[index];
+                    final customer = _filteredCustomers[index];
                     return Card(
-                      elevation: 1,
-                      margin: const EdgeInsets.only(bottom: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      elevation: 3,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      color: cardColor,
                       child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         leading: CircleAvatar(
-                          backgroundColor: const Color(0xFFDF0613),
+                          backgroundColor: primaryColor,
+                          radius: 20,
                           child: Text(
-                            customer['name']?.isNotEmpty == true ? customer['name'][0] : '?',
+                            customer['name']?.isNotEmpty == true ? customer['name'][0].toUpperCase() : '?',
                             style: const TextStyle(
                               color: Colors.white,
                               fontFamily: 'Nunito',
-                              fontSize: 14,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
                         title: Text(
                           customer['name'] ?? 'Unknown',
-                          style: const TextStyle(fontFamily: 'Nunito', fontSize: 14),
+                          style: const TextStyle(
+                            fontFamily: 'Nunito',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
                         ),
                         subtitle: Text(
-                          '${customer['email'] ?? ''} | ${customer['phone'] ?? ''}',
-                          style: const TextStyle(fontFamily: 'Nunito', fontSize: 12),
+                          '${customer['email'] ?? 'No email'} | ${customer['phone'] ?? 'No phone'}',
+                          style: const TextStyle(
+                            fontFamily: 'Nunito',
+                            fontSize: 14,
+                            color: Colors.black54,
+                          ),
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
-                              icon: const Icon(Icons.edit, color: Color(0xFFDF0613), size: 20),
+                              icon: const Icon(Icons.edit, color: primaryColor, size: 24),
                               onPressed: () => _showCustomerActionSheet(context, customer),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red, size: 20),
-                              onPressed: () async {
-                                try {
-                                  await ApiService.deleteCustomer(customer['id']);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Customer deleted', style: TextStyle(fontSize: 14))),
-                                  );
-                                  setState(() {
-                                    _customersFuture = ApiService.getCustomers();
-                                  });
-                                } catch (e) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Error: $e', style: const TextStyle(fontSize: 14))),
-                                  );
-                                }
-                              },
+                              icon: const Icon(Icons.delete, color: Colors.red, size: 24),
+                              onPressed: () => _deleteCustomer(context, customer['id']),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.confirmation_number, color: Color(0xFFDF0613), size: 20),
+                              icon: const Icon(Icons.confirmation_number, color: primaryColor, size: 24),
                               onPressed: () => Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => TicketFormScreen(customerId: customer['id']),
+                                  builder: (context) => TicketFormScreen(customerId: customer['id'].toString()),
                                 ),
-                              ),
+                              ).then((_) => _refreshCustomers()),
                             ),
                           ],
                         ),
@@ -343,28 +575,57 @@ class _CustomersTabState extends State<CustomersTab> {
             child: ElevatedButton(
               onPressed: () => Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const HomeScreen(username: 'Guest'),
-                ),
+                MaterialPageRoute(builder: (context) => const HomeScreen(username: 'Guest')),
               ),
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 48),
                 backgroundColor: Colors.grey[300],
                 foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text(
+                'Back to Home',
+                style: TextStyle(
+                  fontFamily: 'Nunito',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              child: const Text('Back to Home', style: TextStyle(fontSize: 14)),
             ),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFFDF0613),
-        child: const Icon(Icons.add, size: 20, color: Colors.white),
+        backgroundColor: primaryColor,
         onPressed: () => _showCustomerActionSheet(context, null),
+        child: const Icon(Icons.add, size: 24, color: Colors.white),
       ),
     );
+  }
+
+  Future<void> _deleteCustomer(BuildContext context, String? customerId) async {
+    if (customerId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Invalid customer ID', style: TextStyle(fontFamily: 'Nunito', fontSize: 14)),
+        ),
+      );
+      return;
+    }
+    try {
+      await ApiService.deleteCustomer(customerId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Customer deleted successfully', style: TextStyle(fontFamily: 'Nunito', fontSize: 14)),
+        ),
+      );
+      _refreshCustomers();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to delete customer: $e', style: const TextStyle(fontFamily: 'Nunito', fontSize: 14)),
+        ),
+      );
+    }
   }
 }

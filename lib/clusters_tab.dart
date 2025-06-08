@@ -2,36 +2,35 @@ import 'package:flutter/material.dart';
 import 'package:untitled1/api_service.dart';
 import 'package:untitled1/home_screen.dart';
 
-class NotificationsTab extends StatefulWidget {
-  const NotificationsTab({super.key});
+class ClustersTab extends StatefulWidget {
+  const ClustersTab({super.key});
 
   @override
-  _NotificationsTabState createState() => _NotificationsTabState();
+  _ClustersTabState createState() => _ClustersTabState();
 }
 
-class _NotificationsTabState extends State<NotificationsTab> {
-  late Future<List<Map<String, dynamic>>> _notificationsFuture;
-  List<Map<String, dynamic>> _filteredNotifications = [];
+class _ClustersTabState extends State<ClustersTab> {
+  late Future<List<Map<String, dynamic>>> _clustersFuture;
+  List<Map<String, dynamic>> _filteredClusters = [];
   final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _notificationsFuture = _fetchNotifications();
-    _searchController.addListener(_filterNotifications);
+    _clustersFuture = _fetchClusters();
+    _searchController.addListener(_filterClusters);
   }
 
-  Future<List<Map<String, dynamic>>> _fetchNotifications() async {
+  Future<List<Map<String, dynamic>>> _fetchClusters() async {
     try {
-      final notifications = await ApiService.getNotifications();
-      _filteredNotifications = notifications; // Initialize filtered list
-      return notifications;
+      final clusters = await ApiService.getClusters();
+      _filteredClusters = clusters; // Initialize filtered list
+      return clusters;
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to load notifications: $e',
-                style: const TextStyle(fontFamily: 'Nunito', fontSize: 14)),
+            content: Text('Failed to load clusters: $e', style: const TextStyle(fontFamily: 'Nunito', fontSize: 14)),
           ),
         );
       }
@@ -39,20 +38,20 @@ class _NotificationsTabState extends State<NotificationsTab> {
     }
   }
 
-  void _refreshNotifications() {
+  void _refreshClusters() {
     setState(() {
-      _notificationsFuture = _fetchNotifications();
+      _clustersFuture = _fetchClusters();
     });
   }
 
-  void _filterNotifications() {
-    _notificationsFuture.then((notifications) {
+  void _filterClusters() {
+    _clustersFuture.then((clusters) {
       final query = _searchController.text.toLowerCase();
       setState(() {
-        _filteredNotifications = notifications.where((notification) {
-          final message = notification['message']?.toLowerCase() ?? '';
-          final date = notification['date']?.toLowerCase() ?? '';
-          return message.contains(query) || date.contains(query);
+        _filteredClusters = clusters.where((cluster) {
+          final name = cluster['name']?.toLowerCase() ?? '';
+          final townName = cluster['town'] != null ? cluster['town']['name']?.toLowerCase() ?? '' : '';
+          return name.contains(query) || townName.contains(query);
         }).toList();
       });
     });
@@ -74,7 +73,7 @@ class _NotificationsTabState extends State<NotificationsTab> {
       backgroundColor: backgroundColor,
       appBar: AppBar(
         title: const Text(
-          'Notifications',
+          'Clusters',
           style: TextStyle(
             color: Colors.white,
             fontSize: 18,
@@ -92,7 +91,7 @@ class _NotificationsTabState extends State<NotificationsTab> {
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Search by message or date',
+                hintText: 'Search by cluster or town name',
                 filled: true,
                 fillColor: Colors.grey[100],
                 border: OutlineInputBorder(
@@ -113,22 +112,18 @@ class _NotificationsTabState extends State<NotificationsTab> {
                   icon: const Icon(Icons.clear, color: primaryColor),
                   onPressed: () {
                     _searchController.clear();
-                    _filterNotifications();
+                    _filterClusters();
                   },
                 )
                     : null,
                 contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
               ),
-              style: const TextStyle(
-                fontFamily: 'Nunito',
-                fontSize: 14,
-                color: Colors.black87,
-              ),
+              style: const TextStyle(fontFamily: 'Nunito', fontSize: 14, color: Colors.black87),
             ),
           ),
           Expanded(
             child: FutureBuilder<List<Map<String, dynamic>>>(
-              future: _notificationsFuture,
+              future: _clustersFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator(color: primaryColor));
@@ -139,12 +134,12 @@ class _NotificationsTabState extends State<NotificationsTab> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const Text(
-                          'Error loading notifications',
+                          'Error loading clusters',
                           style: TextStyle(fontFamily: 'Nunito', fontSize: 14),
                         ),
                         const SizedBox(height: 12),
                         ElevatedButton(
-                          onPressed: _refreshNotifications,
+                          onPressed: _refreshClusters,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: primaryColor,
                             foregroundColor: Colors.white,
@@ -159,28 +154,28 @@ class _NotificationsTabState extends State<NotificationsTab> {
                     ),
                   );
                 }
-                final notifications = snapshot.data ?? [];
-                if (_filteredNotifications.isEmpty && _searchController.text.isNotEmpty) {
+                final clusters = snapshot.data ?? [];
+                if (_filteredClusters.isEmpty && _searchController.text.isNotEmpty) {
                   return const Center(
                     child: Text(
-                      'No matching notifications',
+                      'No matching clusters',
                       style: TextStyle(fontFamily: 'Nunito', fontSize: 14),
                     ),
                   );
                 }
-                if (_filteredNotifications.isEmpty && notifications.isEmpty) {
+                if (_filteredClusters.isEmpty && clusters.isEmpty) {
                   return const Center(
                     child: Text(
-                      'No notifications available',
+                      'No clusters available',
                       style: TextStyle(fontFamily: 'Nunito', fontSize: 14),
                     ),
                   );
                 }
                 return ListView.builder(
                   padding: const EdgeInsets.all(12),
-                  itemCount: _filteredNotifications.length,
+                  itemCount: _filteredClusters.length,
                   itemBuilder: (context, index) {
-                    final notification = _filteredNotifications[index];
+                    final cluster = _filteredClusters[index];
                     return Card(
                       elevation: 3,
                       margin: const EdgeInsets.only(bottom: 12),
@@ -188,13 +183,21 @@ class _NotificationsTabState extends State<NotificationsTab> {
                       color: cardColor,
                       child: ListTile(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        leading: const Icon(
-                          Icons.notifications,
-                          color: primaryColor,
-                          size: 24,
+                        leading: CircleAvatar(
+                          backgroundColor: primaryColor,
+                          radius: 20,
+                          child: Text(
+                            cluster['name']?.isNotEmpty == true ? cluster['name'][0].toUpperCase() : '?',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontFamily: 'Nunito',
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                         title: Text(
-                          notification['message'] ?? 'Unknown',
+                          cluster['name'] ?? 'Unknown',
                           style: const TextStyle(
                             fontFamily: 'Nunito',
                             fontSize: 16,
@@ -203,7 +206,7 @@ class _NotificationsTabState extends State<NotificationsTab> {
                           ),
                         ),
                         subtitle: Text(
-                          notification['date'] ?? 'No date',
+                          cluster['town'] != null ? cluster['town']['name'] ?? 'No town' : 'No town',
                           style: const TextStyle(
                             fontFamily: 'Nunito',
                             fontSize: 14,
@@ -222,13 +225,17 @@ class _NotificationsTabState extends State<NotificationsTab> {
             child: ElevatedButton(
               onPressed: () => Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => const HomeScreen(username: 'Guest')),
+                MaterialPageRoute(
+                  builder: (context) => const HomeScreen(username: 'Guest'),
+                ),
               ),
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 48),
                 backgroundColor: Colors.grey[300],
                 foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: const Text(
                 'Back to Home',

@@ -1,0 +1,597 @@
+{
+  "base_url": "https://yourdomain.com/api",
+  "authentication": "Bearer Token via Sanctum",
+  "endpoints": [
+    {
+      "group": "Authentication",
+      "routes": [
+        {
+          "name": "Login",
+          "method": "POST",
+          "url": "/auth/login",
+          "auth_required": false,
+          "request_body": {
+            "email": "string",
+            "password": "string"
+          },
+          "response": {
+            "access_token": "1|mL6hF9VonugAtbdr0teRe4zDcd3A9NxNrKJhX7M266d31b05",
+            "token_type": "Bearer",
+            "user": {
+              "id": "4d84604b-ec07-4bf9-a1a6-3ab019217c28",
+              "first_name": "Admin",
+              "last_name": "User",
+              "email": "admin@ogdms.com",
+              "phone": "255700000000",
+              "email_verified_at": "2025-06-03T13:09:26.000000Z",
+              "two_factor_confirmed_at": null,
+              "current_team_id": null,
+              "profile_photo_path": null,
+              "created_at": "2025-06-03T13:09:26.000000Z",
+              "updated_at": "2025-06-03T13:09:26.000000Z",
+              "profile_photo_url": "https://ui-avatars.com/api/?name=&color=7F9CF5&background=EBF4FF"
+            }
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "method": "POST",
+          "url": "/auth/forgot_password",
+          "auth_required": false,
+          "request_body": {
+            "email": "string"
+          },
+          "response": {
+            "message": "Password reset link sent to your email.",
+            "token": "mxMVlOcpJCtFoMVrldAzXPYGL7iHl81cEn6237wU4UvL0digwMt8B7SKLPq9",
+            "email": "admin@ogdms.com"
+          }
+        },
+        {
+          "name": "Reset Password",
+          "method": "POST",
+          "url": "/auth/reset_password",
+          "auth_required": false,
+          "request_body": {
+            "email": "string",
+            "token": "string",
+            "password": "string",
+            "password_confirmation": "string"
+          },
+          "response": {
+            "message": "Password reset successful."
+          }
+        },
+        {
+          "name": "Verify Email",
+          "method": "GET",
+          "url": "/auth/email/verify/{id}/{hash}",
+          "auth_required": false,
+          "request_body": {},
+          "response": {
+            "message": "Email verified successfully."
+          }
+        },
+        {
+          "name": "Resend Verification Email",
+          "method": "POST",
+          "url": "/auth/email/verify/resend",
+          "auth_required": true,
+          "request_body": {},
+          "response": {
+            "message": "Verification email resent."
+          }
+        },
+        {
+          "name": "Logout",
+          "method": "POST",
+          "url": "/auth/logout",
+          "auth_required": true,
+          "request_body": {},
+          "response": {
+            "message": "Logged out successfully."
+          }
+        },
+        {
+          "name": "Get Authenticated User",
+          "method": "GET",
+          "url": "/auth/me",
+          "auth_required": true,
+          "request_body": {},
+          "response": {
+            "id": "4d84604b-ec07-4bf9-a1a6-3ab019217c28",
+            "first_name": "Admin",
+            "last_name": "User",
+            "email": "admin@ogdms.com",
+            "phone": "255700000000",
+            "email_verified_at": "2025-06-03T13:09:26.000000Z",
+            "two_factor_confirmed_at": null,
+            "current_team_id": null,
+            "profile_photo_path": null,
+            "created_at": "2025-06-03T13:09:26.000000Z",
+            "updated_at": "2025-06-03T13:09:26.000000Z",
+            "profile_photo_url": "https://ui-avatars.com/api/?name=&color=7F9CF5&background=EBF4FF"
+          }
+        }
+      ]
+    },
+    {
+      "group": "device_types",
+      "auth_required": true,
+      "routes": [
+        {
+          "name": "List Device Types",
+          "method": "GET",
+          "url": "/device_types",
+          "auth_required": true,
+          "request_body": {},
+          "response": [
+            {
+              "id": "904d5aac-aa77-4d5c-b878-9bbdf338407c",
+              "name": "POE",
+              "created_at": "2025-06-03T13:09:26.000000Z",
+              "updated_at": "2025-06-03T13:09:26.000000Z"
+            },
+            {
+              "id": "b23a3455-71ec-498b-96df-7c6ca1ac0e26",
+              "name": "WLL Router",
+              "created_at": "2025-06-03T13:09:26.000000Z",
+              "updated_at": "2025-06-03T13:09:26.000000Z"
+            },
+            {
+              "id": "bcaf75e9-73b2-4284-b7fd-595d060cae4e",
+              "name": "ODU",
+              "created_at": "2025-06-03T13:09:26.000000Z",
+              "updated_at": "2025-06-03T13:09:26.000000Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "group": "service_types",
+      "auth_required": true,
+      "routes": [
+        {
+          "name": "List Service Types",
+          "method": "GET",
+          "url": "/service_types",
+          "auth_required": true,
+          "request_body": {},
+          "response": [
+            {
+              "id": "9c745970-1e01-4669-94fa-c60e73da9060",
+              "name": "Installation",
+              "created_at": "2025-06-04T10:06:52.000000Z",
+              "updated_at": "2025-06-04T10:06:52.000000Z"
+            },
+            {
+              "id": "f04e5c1f-ec74-4065-ac17-095eb4444eb2",
+              "name": "Maintanance",
+              "created_at": "2025-06-04T10:06:52.000000Z",
+              "updated_at": "2025-06-04T10:06:52.000000Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "group": "towns",
+      "auth_required": true,
+      "routes": [
+        {
+          "name": "List Towns",
+          "method": "GET",
+          "url": "/towns",
+          "auth_required": true,
+          "request_body": {},
+          "response": [
+            {
+              "id": "2d9412a5-160e-4c54-9275-c3b5935443ee",
+              "name": "Mwanza",
+              "created_at": "2025-06-03T13:09:26.000000Z",
+              "updated_at": "2025-06-03T13:09:26.000000Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "group": "clusters",
+      "auth_required": true,
+      "routes": [
+        {
+          "name": "List Clusters",
+          "method": "GET",
+          "url": "/clusters",
+          "auth_required": true,
+          "request_body": {},
+          "response": [
+            {
+              "id": "0608589d-4c9f-4492-83a6-083375b0e912",
+              "town_id": "a1fad9ed-1238-47ac-9a5b-caebe4f8ffd9",
+              "name": "Cluster 42",
+              "created_at": "2025-06-03T13:09:26.000000Z",
+              "updated_at": "2025-06-03T13:09:26.000000Z",
+              "pivot": {
+                "user_id": "8f9efb87-fdde-4aa5-a826-3a717faecea6",
+                "cluster_id": "0608589d-4c9f-4492-83a6-083375b0e912",
+                "id": "34f08a7c-370a-4809-bb4a-1886138efaec",
+                "role_id": "7975750a-f314-4b00-8902-2a5b8daf1b28",
+                "created_at": "2025-06-03T13:19:55.000000Z",
+                "updated_at": "2025-06-03T13:19:55.000000Z"
+              },
+              "town": {
+                "id": "a1fad9ed-1238-47ac-9a5b-caebe4f8ffd9",
+                "name": "Dar es Salaam",
+                "created_at": "2025-06-03T13:09:26.000000Z",
+                "updated_at": "2025-06-03T13:09:26.000000Z"
+              }
+            },
+            {
+              "id": "03a849b6-ff9d-45b2-80ad-15f293534483",
+              "town_id": "a1fad9ed-1238-47ac-9a5b-caebe4f8ffd9",
+              "name": "Cluster 45",
+              "created_at": "2025-06-03T13:09:26.000000Z",
+              "updated_at": "2025-06-03T13:09:26.000000Z",
+              "pivot": {
+                "user_id": "8f9efb87-fdde-4aa5-a826-3a717faecea6",
+                "cluster_id": "03a849b6-ff9d-45b2-80ad-15f293534483",
+                "id": "bc20c6c1-1e17-47c5-bf09-5e6b23603d14",
+                "role_id": "7975750a-f314-4b00-8902-2a5b8daf1b28",
+                "created_at": "2025-06-03T13:19:55.000000Z",
+                "updated_at": "2025-06-03T13:19:55.000000Z"
+              },
+              "town": {
+                "id": "a1fad9ed-1238-47ac-9a5b-caebe4f8ffd9",
+                "name": "Dar es Salaam",
+                "created_at": "2025-06-03T13:09:26.000000Z",
+                "updated_at": "2025-06-03T13:09:26.000000Z"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "group": "sites",
+      "auth_required": true,
+      "routes": [
+        {
+          "name": "List Sites",
+          "method": "GET",
+          "url": "/sites",
+          "auth_required": true,
+          "request_body": {},
+          "response": [
+            {
+              "id": "12079827-55d3-4cf0-b041-4454681d781f",
+              "cluster_id": "03a849b6-ff9d-45b2-80ad-15f293534483",
+              "name": "Kurasini_Polisi",
+              "site_id": "TZ1984",
+              "created_at": "2025-06-03T13:09:26.000000Z",
+              "updated_at": "2025-06-03T13:09:26.000000Z",
+              "pivot": {
+                "user_id": "c330858a-462f-4ee7-a96e-75af14fcfc97",
+                "site_id": "12079827-55d3-4cf0-b041-4454681d781f",
+                "id": "1d14970e-b86e-4e12-befc-6a34e8e6f23c",
+                "role_id": "bc824760-7558-4c06-8fa9-4239c5efb4f6",
+                "created_at": "2025-06-03T13:34:00.000000Z",
+                "updated_at": "2025-06-03T13:34:00.000000Z"
+              },
+              "cluster": {
+                "id": "03a849b6-ff9d-45b2-80ad-15f293534483",
+                "town_id": "a1fad9ed-1238-47ac-9a5b-caebe4f8ffd9",
+                "name": "Cluster 45",
+                "created_at": "2025-06-03T13:09:26.000000Z",
+                "updated_at": "2025-06-03T13:09:26.000000Z"
+              }
+            },
+            {
+              "id": "090b3d80-ea99-41de-b93d-58c8e24192af",
+              "cluster_id": "528d829a-f8c0-442c-8cad-93418ceab6f1",
+              "name": "Benjamin_Mkapa",
+              "site_id": "TZ1217",
+              "created_at": "2025-06-03T13:09:26.000000Z",
+              "updated_at": "2025-06-03T13:09:26.000000Z",
+              "pivot": {
+                "user_id": "c330858a-462f-4ee7-a96e-75af14fcfc97",
+                "site_id": "090b3d80-ea99-41de-b93d-58c8e24192af",
+                "id": "cfe2d5be-c56d-4e31-bce4-acc7f72d898e",
+                "role_id": "bc824760-7558-4c06-8fa9-4239c5efb4f6",
+                "created_at": "2025-06-03T13:34:00.000000Z",
+                "updated_at": "2025-06-03T13:34:00.000000Z"
+              },
+              "cluster": {
+                "id": "528d829a-f8c0-442c-8cad-93418ceab6f1",
+                "town_id": "a1fad9ed-1238-47ac-9a5b-caebe4f8ffd9",
+                "name": "Cluster 33",
+                "created_at": "2025-06-03T13:09:26.000000Z",
+                "updated_at": "2025-06-03T13:09:26.000000Z"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Site",
+          "method": "POST",
+          "url": "/sites",
+          "auth_required": true,
+          "request_body": {
+            "name": "string",
+            "address": "string",
+            "cluster_id": "uuid"
+          },
+          "response": {
+            "id": "uuid-2",
+            "name": "Site A",
+            "address": "123 Street",
+            "cluster_id": "uuid-cluster-1",
+            "created_at": "2025-06-02T10:00:00Z"
+          }
+        },
+        {
+          "name": "Get Site",
+          "method": "GET",
+          "url": "/sites/{id}",
+          "auth_required": true,
+          "request_body": {},
+          "response": {
+            "id": "uuid-1",
+            "name": "Site A",
+            "address": "123 Street",
+            "cluster_id": "uuid-cluster-1",
+            "created_at": "2025-06-01T08:00:00Z"
+          }
+        },
+        {
+          "name": "Update Site",
+          "method": "PUT",
+          "url": "/sites/{id}",
+          "auth_required": true,
+          "request_body": {
+            "name": "string",
+            "address": "string",
+            "cluster_id": "uuid"
+          },
+          "response": {
+            "id": "uuid-1",
+            "name": "Updated Site",
+            "address": "Updated Address",
+            "cluster_id": "uuid-cluster-1",
+            "updated_at": "2025-06-03T11:00:00Z"
+          }
+        },
+        {
+          "name": "Delete Site",
+          "method": "DELETE",
+          "url": "/sites/{id}",
+          "auth_required": true,
+          "request_body": {},
+          "response": {
+            "message": "Site deleted successfully."
+          }
+        }
+      ]
+    },
+    {
+      "group": "leads",
+      "auth_required": true,
+      "routes": [
+        {
+          "name": "Get All Leads",
+          "method": "GET",
+          "url": "/leads",
+          "auth_required": true,
+          "request_body": {},
+          "response": [
+            {
+              "id": "e72206a2-2db0-4c99-b2b4-209d13a48472",
+              "user_id": "c330858a-462f-4ee7-a96e-75af14fcfc97",
+              "site_id": "12079827-55d3-4cf0-b041-4454681d781f",
+              "name": "Juma Daud",
+              "phone": "0656890322",
+              "email": "sampatrick@gmail.com",
+              "notes": "Mteja anahitaji huduma ya internet, kati ya ODU au POE",
+              "status": "pending",
+              "created_at": "2025-06-04T11:10:18.000000Z",
+              "updated_at": "2025-06-04T11:10:18.000000Z"
+            }
+          ]
+        },
+        {
+          "name": "Create Lead",
+          "method": "POST",
+          "url": "/leads",
+          "auth_required": true,
+          "request_body": {
+            "site_id": "12079827-55d3-4cf0-b041-4454681d781f",
+            "name": "Juma Daud",
+            "phone": "0656890322",
+            "email": "sampatrick@gmail.com",
+            "notes": "Mteja anahitaji huduma ya internet, kati ya ODU au POE"
+          },
+          "response": {
+            "name": "Juma Daud",
+            "phone": "0656890322",
+            "email": "sampatrick@gmail.com",
+            "notes": "Mteja anahitaji huduma ya internet, kati ya ODU au POE",
+            "site_id": "12079827-55d3-4cf0-b041-4454681d781f",
+            "user_id": "c330858a-462f-4ee7-a96e-75af14fcfc97",
+            "id": "e72206a2-2db0-4c99-b2b4-209d13a48472",
+            "updated_at": "2025-06-04T11:10:18.000000Z",
+            "created_at": "2025-06-04T11:10:18.000000Z"
+          }
+        },
+        {
+          "name": "Update Leads",
+          "method": "PUT",
+          "url": "/leads/{id}",
+          "auth_required": true,
+          "request_body": {
+            "site_id": "12079827-55d3-4cf0-b041-4454681d781f",
+            "name": "Juma Daudi",
+            "phone": "0656890322",
+            "email": "sampatrick@gmail.com",
+            "notes": "Mteja anahitaji huduma ya internet, kati ya ODU au POE"
+          },
+          "response": {
+            "id": "e72206a2-2db0-4c99-b2b4-209d13a48472",
+            "user_id": "c330858a-462f-4ee7-a96e-75af14fcfc97",
+            "site_id": "12079827-55d3-4cf0-b041-4454681d781f",
+            "name": "Juma Daudi",
+            "phone": "0656890322",
+            "email": "sampatrick@gmail.com",
+            "notes": "Mteja anahitaji huduma ya internet, kati ya ODU au POE",
+            "status": "pending",
+            "created_at": "2025-06-04T11:10:18.000000Z",
+            "updated_at": "2025-06-04T11:12:54.000000Z"
+          }
+        },
+        {
+          "name": "Delete Customer",
+          "method": "DELETE",
+          "url": "/customers/{id}",
+          "auth_required": true,
+          "request_body": {},
+          "response": {
+            "message": "Customer deleted successfully."
+          }
+        }
+      ]
+    },
+    {
+      "group": "customers",
+      "auth_required": true,
+      "routes": [
+        {
+          "name": "Get All Customers",
+          "method": "GET",
+          "url": "/customers",
+          "auth_required": true,
+          "request_body": {},
+          "response": [
+            {
+              "id": "64891cb4-bb03-4adf-9f36-651137925dc4",
+              "lead_id": null,
+              "user_id": "c330858a-462f-4ee7-a96e-75af14fcfc97",
+              "name": "Samson Patrick",
+              "phone": "0656890322",
+              "email": "sampatrick@gmail.com",
+              "address": "Tabata Baracuda",
+              "id_type": "NIDA",
+              "id_number": "19920312893403004",
+              "tin_number": "T120943",
+              "latitude": "35.98540394",
+              "longitude": "36.82749345",
+              "site_id": "12079827-55d3-4cf0-b041-4454681d781f",
+              "created_at": "2025-06-04T10:57:04.000000Z",
+              "updated_at": "2025-06-04T10:57:04.000000Z",
+              "site": {
+                "id": "12079827-55d3-4cf0-b041-4454681d781f",
+                "cluster_id": "03a849b6-ff9d-45b2-80ad-15f293534483",
+                "name": "Kurasini_Polisi",
+                "site_id": "TZ1984",
+                "created_at": "2025-06-03T13:09:26.000000Z",
+                "updated_at": "2025-06-03T13:09:26.000000Z"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Customer",
+          "method": "POST",
+          "url": "/customers",
+          "auth_required": true,
+          "request_body": {
+            "site_id": "",
+            "name": "",
+            "phone": "",
+            "email": "",
+            "address": "",
+            "id_type": "",
+            "id_number": "",
+            "tin_number": "",
+            "latitude": "",
+            "longitude": ""
+          },
+          "response": {
+            "id": "uuid-3",
+            "name": "Alice Johnson",
+            "email": "alice.johnson@example.com",
+            "phone": "+1234567890",
+            "address": "123 Main St, City",
+            "town_id": "uuid-town-1",
+            "created_at": "2025-06-03T10:00:00Z",
+            "updated_at": "2025-06-03T10:00:00Z"
+          }
+        },
+        {
+          "name": "Update Customer",
+          "method": "PUT",
+          "url": "/customers/{id}",
+          "auth_required": true,
+          "request_body": {
+            "site_id": "12079827-55d3-4cf0-b041-4454681d781f",
+            "name": "Samson Patrickoo",
+            "phone": "0656890322",
+            "email": "sampatrick@gmail.com",
+            "address": "Tabata Baracuda",
+            "id_type": "NIDA",
+            "id_number": "19920312893403004",
+            "tin_number": "T120943",
+            "latitude": "35.98540394",
+            "longitude": "36.82749345"
+          },
+          "response": {
+            "id": "64891cb4-bb03-4adf-9f36-651137925dc4",
+            "lead_id": null,
+            "user_id": "c330858a-462f-4ee7-a96e-75af14fcfc97",
+            "name": "Samson Patrickoo",
+            "phone": "0656890322",
+            "email": "sampatrick@gmail.com",
+            "address": "Tabata Baracuda",
+            "id_type": "NIDA",
+            "id_number": "19920312893403004",
+            "tin_number": "T120943",
+            "latitude": "35.98540394",
+            "longitude": "36.82749345",
+            "site_id": "12079827-55d3-4cf0-b041-4454681d781f",
+            "created_at": "2025-06-04T10:57:04.000000Z",
+            "updated_at": "2025-06-04T11:00:12.000000Z"
+          }
+        },
+        {
+          "name": "Delete Customer",
+          "method": "DELETE",
+          "url": "/customers/{id}",
+          "auth_required": true,
+          "request_body": {},
+          "response": {
+            "message": "Customer deleted successfully."
+          }
+        }
+      ]
+    }
+    
+  ]
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

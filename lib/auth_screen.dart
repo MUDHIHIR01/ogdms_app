@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:untitled1/api_service.dart';
-import 'package:untitled1/home_screen.dart';
-import 'package:untitled1/reset_password_screen.dart';
+import 'api_service.dart';
+import 'home_screen.dart';
+import 'reset_password_screen.dart';
 
 class AuthScreen extends StatelessWidget {
   final bool isResetPassword;
@@ -14,169 +14,212 @@ class AuthScreen extends StatelessWidget {
     final _passwordController = TextEditingController();
     bool _isLogin = !isResetPassword;
     bool _obscurePassword = true;
+    bool _isLoading = false;
+
+    void showErrorSnackBar(String message) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
 
     return StatefulBuilder(
       builder: (context, setState) {
         return Scaffold(
-          body: Stack(
-            children: [
-              Container(
-                height: MediaQuery.of(context).size.height * 0.5,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFDF0613),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 6,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: const Center(
-                  child: Text(
-                    'OGDMS',
-                    style: TextStyle(
-                      fontFamily: 'Nunito',
-                      fontSize: 24,
-                      color: Colors.white,
+          backgroundColor: Colors.white,
+          body: SafeArea(
+            child: Stack(
+              children: [
+                Container(
+                  height: MediaQuery.of(context).size.height * 0.3,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFDF0613),
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(20),
+                      bottomRight: Radius.circular(20),
                     ),
                   ),
-                ),
-              ),
-              Center(
-                child: Card(
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _isLogin ? 'Login' : 'Forgot Password',
-                            style: const TextStyle(
-                              fontFamily: 'Nunito',
-                              fontSize: 16,
-                              color: Color(0xFFDF0613),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _emailController,
-                            decoration: const InputDecoration(
-                              labelText: 'Email',
-                              prefixIcon: Icon(Icons.email, color: Color(0xFFDF0613)),
-                              border: OutlineInputBorder(),
-                            ),
-                            keyboardType: TextInputType.emailAddress,
-                            style: const TextStyle(fontSize: 14, color: Colors.white), // Changed to white
-                            validator: (value) => value!.isEmpty ? 'Enter email' : null,
-                          ),
-                          if (_isLogin) ...[
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              controller: _passwordController,
-                              decoration: InputDecoration(
-                                labelText: 'Password',
-                                prefixIcon: const Icon(Icons.lock, color: Color(0xFFDF0613)),
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _obscurePassword ? Icons.visibility : Icons.visibility_off,
-                                    color: const Color(0xFFDF0613),
-                                  ),
-                                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                                ),
-                                border: const OutlineInputBorder(),
-                              ),
-                              obscureText: _obscurePassword,
-                              style: const TextStyle(fontSize: 14, color: Colors.white), // Changed to white
-                              validator: (value) => value!.isEmpty ? 'Enter password' : null,
-                            ),
-                          ],
-                          const SizedBox(height: 16),
-                          ElevatedButton(
-                            onPressed: () async {
-                              if (_formKey.currentState!.validate()) {
-                                try {
-                                  if (_isLogin) {
-                                    final result = await ApiService.login(
-                                      _emailController.text,
-                                      _passwordController.text,
-                                    );
-                                    Navigator.pushReplacement(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => HomeScreen(username: result['name'] ?? 'Guest'),
-                                      ),
-                                    );
-                                  } else {
-                                    await ApiService.forgotPassword(_emailController.text);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Reset link sent', style: TextStyle(fontSize: 14, color: Colors.white))), // Changed to white
-                                    );
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => ResetPasswordScreen(email: _emailController.text),
-                                      ),
-                                    );
-                                  }
-                                } catch (e) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Error: $e', style: const TextStyle(fontSize: 14, color: Colors.white))), // Changed to white
-                                  );
-                                }
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              minimumSize: const Size(double.infinity, 48),
-                            ),
-                            child: Text(_isLogin ? 'Login' : 'Send Reset Link', style: const TextStyle(fontSize: 14, color: Colors.white)), // Changed to white
-                          ),
-                          const SizedBox(height: 12),
-                          TextButton(
-                            onPressed: () => setState(() => _isLogin = !_isLogin),
-                            child: Text(
-                              _isLogin ? 'Forgot Password?' : 'Back to Login',
-                              style: const TextStyle(
-                                fontFamily: 'Nunito',
-                                color: Color(0xFFDF0613),
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                        ],
+                  child: const Center(
+                    child: Text(
+                      'OGDMS',
+                      style: TextStyle(
+                        fontFamily: 'Nunito',
+                        fontSize: 24,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
                 ),
-              ),
-              Positioned(
-                bottom: 16,
-                left: 16,
-                right: 16,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const HomeScreen(username: 'Guest'),
+                Column(
+                  children: [
+                    Expanded(
+                      child: Center(
+                        child: SingleChildScrollView(
+                          child: Card(
+                            elevation: 4,
+                            color: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            margin: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Form(
+                                key: _formKey,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      _isLogin ? 'Login' : 'Forgot Password',
+                                      style: const TextStyle(
+                                        fontFamily: 'Nunito',
+                                        fontSize: 20,
+                                        color: Color(0xFFDF0613),
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    TextFormField(
+                                      controller: _emailController,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Email',
+                                        prefixIcon: Icon(Icons.email, color: Color(0xFFDF0613)),
+                                      ),
+                                      keyboardType: TextInputType.emailAddress,
+                                      validator: (value) {
+                                        if (value == null || value.isEmpty) {
+                                          return 'Please enter email';
+                                        }
+                                        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                                          return 'Please enter a valid email';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                    if (_isLogin) ...[
+                                      const SizedBox(height: 16),
+                                      TextFormField(
+                                        controller: _passwordController,
+                                        decoration: InputDecoration(
+                                          labelText: 'Password',
+                                          prefixIcon: const Icon(Icons.lock, color: Color(0xFFDF0613)),
+                                          suffixIcon: IconButton(
+                                            icon: Icon(
+                                              _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                                              color: const Color(0xFFDF0613),
+                                            ),
+                                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                                          ),
+                                        ),
+                                        obscureText: _obscurePassword,
+                                        validator: (value) =>
+                                        value!.isEmpty ? 'Please enter password' : null,
+                                      ),
+                                    ],
+                                    const SizedBox(height: 24),
+                                    _isLoading
+                                        ? const CircularProgressIndicator(color: Color(0xFFDF0613))
+                                        : ElevatedButton(
+                                      onPressed: () async {
+                                        if (_formKey.currentState!.validate()) {
+                                          setState(() => _isLoading = true);
+                                          try {
+                                            if (_isLogin) {
+                                              final result = await ApiService.login(
+                                                _emailController.text,
+                                                _passwordController.text,
+                                              );
+                                              final user = result['user'];
+                                              final username =
+                                                  '${user['first_name']} ${user['last_name']}';
+                                              Navigator.pushReplacement(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      HomeScreen(username: username),
+                                                ),
+                                              );
+                                            } else {
+                                              final token = await ApiService.forgotPassword(
+                                                  _emailController.text);
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text('Reset link sent to your email'),
+                                                  backgroundColor: Colors.green,
+                                                ),
+                                              );
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) => ResetPasswordScreen(
+                                                    email: _emailController.text,
+                                                    token: token,
+                                                  ),
+                                                ),
+                                              );
+                                            }
+                                          } catch (e) {
+                                            String errorMessage;
+                                            switch (e.toString()) {
+                                              case 'These credentials do not match our records.':
+                                                errorMessage = 'Invalid email or password';
+                                                break;
+                                              case 'No internet connection':
+                                                errorMessage = 'No internet connection. Please check your network';
+                                                break;
+                                              case 'Request timed out':
+                                                errorMessage = 'Request timed out. Please try again';
+                                                break;
+                                              default:
+                                                errorMessage = 'These credentials do not match our records.';
+                                            }
+                                            showErrorSnackBar(errorMessage);
+                                          } finally {
+                                            setState(() => _isLoading = false);
+                                          }
+                                        }
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        minimumSize: const Size(double.infinity, 48),
+                                      ),
+                                      child: Text(_isLogin ? 'Login' : 'Send Reset Link'),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    TextButton(
+                                      onPressed: () => setState(() => _isLogin = !_isLogin),
+                                      child: Text(
+                                        _isLogin ? 'Forgot Password?' : 'Back to Login',
+                                        style: const TextStyle(
+                                          color: Color(0xFFDF0613),
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 48),
-                    backgroundColor: Colors.grey[300],
-                    foregroundColor: Colors.white, // Changed to white
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 16),
+                      child: Text(
+                        'version 1.0',
+                        style: TextStyle(
+                          fontFamily: 'Nunito',
+                          fontSize: 16,
+                          color: Color(0xFFDF0613),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
-                  ),
-                  child: const Text('Back to Home', style: TextStyle(fontSize: 14, color: Colors.white)), // Changed to white
+                  ],
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },

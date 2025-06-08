@@ -1,21 +1,75 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_spinkit/flutter_spinkit.dart';
-import 'package:untitled1/auth_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
+import 'package:app_links/app_links.dart';
+import 'auth_screen.dart';
+import 'reset_password_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
-  runApp(const ChangelogApp());
+  runApp(const MyApp());
 }
 
-class ChangelogApp extends StatelessWidget {
-  const ChangelogApp({super.key});
+class MyApp extends StatefulWidget {
+  const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  Widget _initialScreen = const SplashScreen();
+  final _appLinks = AppLinks();
+
+  @override
+  void initState() {
+    super.initState();
+    _initDeepLinks();
+  }
+
+  void _initDeepLinks() async {
+    try {
+      print('Initializing deep links...');
+      // Handle initial deep link
+      final initialUri = await _appLinks.getInitialLink();
+      if (initialUri != null && mounted) {
+        print('Initial deep link: $initialUri');
+        _handleDeepLink(initialUri);
+      }
+
+      // Handle incoming deep links
+      _appLinks.uriLinkStream.listen((uri) {
+        if (uri != null && mounted) {
+          print('Received deep link: $uri');
+          _handleDeepLink(uri);
+        }
+      }, onError: (err) {
+        print('Deep link error: $err');
+      });
+    } catch (e) {
+      print('Deep link init error: $e');
+    }
+  }
+
+  void _handleDeepLink(Uri uri) {
+    if (uri.path == '/reset' && uri.queryParameters['email'] != null && uri.queryParameters['token'] != null) {
+      print('Valid reset link: ${uri.queryParameters}');
+      setState(() {
+        _initialScreen = ResetPasswordScreen(
+          email: uri.queryParameters['email']!,
+          token: uri.queryParameters['token']!,
+        );
+      });
+    } else {
+      print('Invalid reset link: $uri');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Changelog',
+      title: 'OGDMS',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primaryColor: const Color(0xFFDF0613),
@@ -25,16 +79,8 @@ class ChangelogApp extends StatelessWidget {
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFFDF0613),
             foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            textStyle: const TextStyle(fontFamily: 'Nunito', fontSize: 18),
-            minimumSize: const Size(double.infinity, 48),
           ),
-        ),
-        textTheme: const TextTheme(
-          bodyMedium: TextStyle(fontFamily: 'Nunito', fontSize: 18, color: Colors.black87),
-          titleLarge: TextStyle(fontFamily: 'Nunito', fontSize: 20, color: Color(0xFFDF0613)),
-          headlineSmall: TextStyle(fontFamily: 'Nunito', fontSize: 24, fontWeight: FontWeight.bold),
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
@@ -47,11 +93,9 @@ class ChangelogApp extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(color: Color(0xFFDF0613)),
           ),
-          labelStyle: const TextStyle(fontFamily: 'Nunito', fontSize: 18, color: Colors.grey),
-          prefixIconColor: const Color(0xFFDF0613),
         ),
       ),
-      home: const SplashScreen(),
+      home: _initialScreen,
     );
   }
 }
@@ -60,101 +104,44 @@ class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  _SplashScreenState createState() => _SplashScreenState();
+  State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _fadeAnimation;
-  late Animation<double> _scaleAnimation;
-
+class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
-    );
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
-    );
-    _controller.forward();
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
+        print('Splash done, to AuthScreen');
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (context) => const AuthScreen(),
-          ),
+          MaterialPageRoute(builder: (context) => const AuthScreen()),
         );
       }
     });
   }
 
   @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFDF0613),
-              Color(0xFFFF4D4D),
-              Color(0xFFFF8A80),
-            ],
-          ),
-        ),
-        child: Center(
-          child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: ScaleTransition(
-              scale: _scaleAnimation,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black26,
-                          blurRadius: 10,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: const Text(
-                      'Changelog',
-                      style: TextStyle(
-                        fontFamily: 'Nunito',
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const SpinKitWave(
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                ],
+    return const Scaffold(
+      backgroundColor: Color(0xFFDF0613),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'OGDMS',
+              style: TextStyle(
+                fontFamily: 'Nunito',
+                fontSize: 24,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
               ),
             ),
-          ),
+            SizedBox(height: 16),
+            SpinKitWave(color: Colors.white, size: 24),
+          ],
         ),
       ),
     );

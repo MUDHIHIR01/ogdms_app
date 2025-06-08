@@ -4,10 +4,13 @@ class Customer {
   final String email;
   final String phone;
   final String? siteId;
+  final String? address;
   final String? idType;
   final String? idNumber;
   final String? tinNumber;
-  final String? notes;
+  final String? latitude;
+  final String? longitude;
+  final String? leadId;
 
   const Customer({
     required this.id,
@@ -15,10 +18,13 @@ class Customer {
     required this.email,
     required this.phone,
     this.siteId,
+    this.address,
     this.idType,
     this.idNumber,
     this.tinNumber,
-    this.notes,
+    this.latitude,
+    this.longitude,
+    this.leadId,
   });
 
   Map<String, dynamic> toMap() => {
@@ -27,10 +33,13 @@ class Customer {
     'email': email,
     'phone': phone,
     'site_id': siteId,
+    'address': address,
     'id_type': idType,
     'id_number': idNumber,
     'tin_number': tinNumber,
-    'notes': notes,
+    'latitude': latitude,
+    'longitude': longitude,
+    'lead_id': leadId,
   };
 }
 
@@ -41,6 +50,7 @@ class Lead {
   final String phone;
   final String? siteId;
   final String? notes;
+  final String? status;
 
   const Lead({
     required this.id,
@@ -49,6 +59,7 @@ class Lead {
     required this.phone,
     this.siteId,
     this.notes,
+    this.status,
   });
 
   Map<String, dynamic> toMap() => {
@@ -58,6 +69,7 @@ class Lead {
     'phone': phone,
     'site_id': siteId,
     'notes': notes,
+    'status': status,
   };
 }
 
@@ -111,24 +123,117 @@ class AppNotification {
 
 class User {
   final String id;
-  final String name;
+  final String firstName;
+  final String lastName;
   final String email;
   final String phone;
-  final String role;
+  final String? profilePhotoUrl;
 
   const User({
     required this.id,
-    required this.name,
+    required this.firstName,
+    required this.lastName,
     required this.email,
     required this.phone,
-    required this.role,
+    this.profilePhotoUrl,
+  });
+
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'first_name': firstName,
+    'last_name': lastName,
+    'email': email,
+    'phone': phone,
+    'profile_photo_url': profilePhotoUrl,
+  };
+}
+
+class Site {
+  final String id;
+  final String name;
+  final String? address;
+  final String? clusterId;
+  final String? siteId;
+
+  const Site({
+    required this.id,
+    required this.name,
+    this.address,
+    this.clusterId,
+    this.siteId,
   });
 
   Map<String, dynamic> toMap() => {
     'id': id,
     'name': name,
-    'email': email,
-    'phone': phone,
-    'role': role,
+    'address': address,
+    'cluster_id': clusterId,
+    'site_id': siteId,
+  };
+}
+
+class Cluster {
+  final String id;
+  final String name;
+  final String townId;
+  final Map<String, dynamic>? town;
+
+  const Cluster({
+    required this.id,
+    required this.name,
+    required this.townId,
+    this.town,
+  });
+
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'name': name,
+    'town_id': townId,
+    'town': town,
+  };
+}
+
+class DeviceType {
+  final String id;
+  final String name;
+
+  const DeviceType({
+    required this.id,
+    required this.name,
+  });
+
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'name': name,
+  };
+}
+
+class ServiceType {
+  final String id;
+  final String name;
+
+  const ServiceType({
+    required this.id,
+    required this.name,
+  });
+
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'name': name,
+  };
+}
+
+class Town {
+  final String id;
+  final String name;
+
+  const Town({
+    required this.id,
+    required this.name,
+  });
+
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'name': name,
   };
 }

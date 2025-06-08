@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:untitled1/api_service.dart';
 import 'package:untitled1/customers_tab.dart';
@@ -6,10 +7,53 @@ import 'package:untitled1/notifications_tab.dart';
 import 'package:untitled1/profile_tab.dart';
 import 'package:untitled1/tickets_tab.dart';
 import 'package:untitled1/auth_screen.dart';
+import 'package:untitled1/towns_tab.dart';
+import 'package:untitled1/service_types_tab.dart';
+import 'package:untitled1/clusters_tab.dart';
+import 'package:untitled1/sites_tab.dart';
+import 'package:untitled1/device_types_tab.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   final String username;
   const HomeScreen({super.key, required this.username});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  Timer? _debounce;
+
+  // List of navigation items
+  final List<Map<String, dynamic>> _navItems = [
+    {'title': 'Profile', 'icon': Icons.person, 'route': const ProfileTab()},
+    {'title': 'Tickets', 'icon': Icons.confirmation_number, 'route': const TicketsTab()},
+    {'title': 'Customers', 'icon': Icons.people, 'route': const CustomersTab()},
+    {'title': 'Leads', 'icon': Icons.leaderboard, 'route': const LeadsTab()},
+    {'title': 'Notifications', 'icon': Icons.notifications, 'route': const NotificationsTab()},
+    {'title': 'Towns', 'icon': Icons.location_city, 'route': const TownsTab()},
+    {'title': 'Service Types', 'icon': Icons.build, 'route': const ServiceTypesTab()},
+    {'title': 'Clusters', 'icon': Icons.group_work, 'route': const ClustersTab()},
+    {'title': 'Sites', 'icon': Icons.location_on, 'route': const SitesTab()},
+    {'title': 'Device Types', 'icon': Icons.devices, 'route': const DeviceTypesTab()},
+  ];
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  // Filter nav items based on search query
+  List<Map<String, dynamic>> get _filteredNavItems {
+    if (_searchQuery.isEmpty) return _navItems;
+    return _navItems
+        .where((item) => item['title'].toString().toLowerCase().contains(_searchQuery.toLowerCase()))
+        .toList();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,23 +61,30 @@ class HomeScreen extends StatelessWidget {
     const backgroundColor = Color(0xFFF5F7FA);
     const cardColor = Colors.white;
 
+    // Responsive scaling
+    final double scaleFactor = MediaQuery.of(context).textScaleFactor;
+    final double devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
+    final double screenWidth = MediaQuery.of(context).size.width;
+
+    // Dynamic crossAxisCount based on screen width
+    final int crossAxisCount = screenWidth > 600 ? 4 : 3;
+
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Dashboard',
           style: TextStyle(
             color: Colors.white,
-            fontSize: 16,
+            fontSize: 18 * scaleFactor,
             fontFamily: 'Nunito',
+            fontWeight: FontWeight.bold,
           ),
         ),
         backgroundColor: primaryColor,
         elevation: 0,
         centerTitle: true,
-        iconTheme: const IconThemeData(
-          color: Colors.white,
-        ),
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       drawer: Drawer(
         elevation: 4,
@@ -64,92 +115,38 @@ class HomeScreen extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            'Welcome, $username',
-                            style: const TextStyle(
+                            'Welcome, ${widget.username}',
+                            style: TextStyle(
                               color: Colors.white,
                               fontFamily: 'Nunito',
-                              fontSize: 16,
+                              fontSize: 18 * scaleFactor,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          SizedBox(height: 8 / devicePixelRatio),
                           Text(
                             'Manage your tasks efficiently',
                             style: TextStyle(
                               color: Colors.white.withOpacity(0.8),
                               fontFamily: 'Nunito',
-                              fontSize: 12,
+                              fontSize: 14 * scaleFactor,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    _buildDrawerItem(
-                      icon: Icons.home,
-                      title: 'Home',
-                      onTap: () => Navigator.pop(context),
-                      primaryColor: primaryColor,
-                    ),
-                    _buildDrawerItem(
-                      icon: Icons.person,
-                      title: 'Profile',
+                    ..._navItems.map((item) => _buildDrawerItem(
+                      icon: item['icon'],
+                      title: item['title'],
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => const ProfileTab()),
+                          MaterialPageRoute(builder: (context) => item['route']),
                         );
                       },
                       primaryColor: primaryColor,
-                    ),
-                    _buildDrawerItem(
-                      icon: Icons.confirmation_number,
-                      title: 'Tickets',
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const TicketsTab()),
-                        );
-                      },
-                      primaryColor: primaryColor,
-                    ),
-                    _buildDrawerItem(
-                      icon: Icons.people,
-                      title: 'Customers',
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const CustomersTab()),
-                        );
-                      },
-                      primaryColor: primaryColor,
-                    ),
-                    _buildDrawerItem(
-                      icon: Icons.leaderboard,
-                      title: 'Leads',
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const LeadsTab()),
-                        );
-                      },
-                      primaryColor: primaryColor,
-                    ),
-                    _buildDrawerItem(
-                      icon: Icons.notifications,
-                      title: 'Notifications',
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const NotificationsTab()),
-                        );
-                      },
-                      primaryColor: primaryColor,
-                    ),
+                    )),
                     _buildDrawerItem(
                       icon: Icons.logout,
                       title: 'Logout',
@@ -163,7 +160,9 @@ class HomeScreen extends StatelessWidget {
                           );
                         } catch (e) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error: $e', style: const TextStyle(fontSize: 14))),
+                            SnackBar(
+                              content: Text('Error: $e', style: TextStyle(fontSize: 14 * scaleFactor)),
+                            ),
                           );
                         }
                       },
@@ -173,15 +172,15 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
               Container(
-                height: 50,
+                height: 50 / devicePixelRatio,
                 color: primaryColor,
-                child: const Center(
+                child: Center(
                   child: Text(
                     'OGDMS v1.0',
                     style: TextStyle(
                       color: Colors.white,
                       fontFamily: 'Nunito',
-                      fontSize: 12,
+                      fontSize: 12 * scaleFactor,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -192,155 +191,108 @@ class HomeScreen extends StatelessWidget {
         ),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Welcome, $username',
-                style: const TextStyle(
-                  fontFamily: 'Nunito',
-                  fontSize: 16,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16.0),
-                decoration: BoxDecoration(
-                  color: primaryColor,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Search tasks, customers, or leads...',
-                    hintStyle: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return Padding(
+              padding: EdgeInsets.all(16.0 / devicePixelRatio),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Welcome, ${widget.username}',
+                    style: TextStyle(
                       fontFamily: 'Nunito',
-                      fontSize: 12,
+                      fontSize: 20 * scaleFactor,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
                     ),
-                    filled: true,
-                    fillColor: Colors.white.withOpacity(0.1),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(
-                        color: Colors.white.withOpacity(0.8),
-                        width: 1,
-                      ),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(
-                        color: Colors.white.withOpacity(0.8),
-                        width: 1,
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(
-                        color: Colors.white.withOpacity(0.8),
-                        width: 1,
-                      ),
-                    ),
-                    prefixIcon: Icon(
-                      Icons.search,
-                      color: Colors.white.withOpacity(0.8),
-                      size: 20,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                   ),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontFamily: 'Nunito',
-                    fontSize: 12,
+                  SizedBox(height: 16 / devicePixelRatio),
+                  Container(
+                    padding: EdgeInsets.all(16.0 / devicePixelRatio),
+                    decoration: BoxDecoration(
+                      color: primaryColor,
+                      borderRadius: BorderRadius.circular(12 / devicePixelRatio),
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: 'Search tasks, customers, or leads...',
+                        hintStyle: TextStyle(
+                          color: Colors.white.withOpacity(0.7),
+                          fontFamily: 'Nunito',
+                          fontSize: 14 * scaleFactor,
+                        ),
+                        filled: true,
+                        fillColor: Colors.white.withOpacity(0.1),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12 / devicePixelRatio),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12 / devicePixelRatio),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12 / devicePixelRatio),
+                          borderSide: BorderSide(
+                            color: Colors.white.withOpacity(0.8),
+                            width: 1 / devicePixelRatio,
+                          ),
+                        ),
+                        prefixIcon: Icon(
+                          Icons.search,
+                          color: Colors.white.withOpacity(0.8),
+                          size: 24,
+                        ),
+                        contentPadding: EdgeInsets.symmetric(
+                          vertical: 12 / devicePixelRatio,
+                          horizontal: 16 / devicePixelRatio,
+                        ),
+                      ),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontFamily: 'Nunito',
+                        fontSize: 14 * scaleFactor,
+                      ),
+                      cursorColor: Colors.white,
+                      onChanged: (value) {
+                        if (_debounce?.isActive ?? false) _debounce!.cancel();
+                        _debounce = Timer(const Duration(milliseconds: 300), () {
+                          setState(() {
+                            _searchQuery = value;
+                          });
+                        });
+                      },
+                    ),
                   ),
-                  cursorColor: Colors.white,
-                  onChanged: (value) {
-                    // Implement search functionality here
-                  },
-                ),
+                  SizedBox(height: 16 / devicePixelRatio),
+                  Expanded(
+                    child: GridView.count(
+                      crossAxisCount: crossAxisCount,
+                      crossAxisSpacing: 12 / devicePixelRatio,
+                      mainAxisSpacing: 12 / devicePixelRatio,
+                      childAspectRatio: screenWidth > 600 ? 1.2 : 1.0,
+                      children: _filteredNavItems.map((item) {
+                        return _NavCard(
+                          title: item['title'],
+                          icon: item['icon'],
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => item['route']),
+                          ),
+                          primaryColor: primaryColor,
+                          cardColor: cardColor,
+                          scaleFactor: scaleFactor,
+                          devicePixelRatio: devicePixelRatio,
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    return GridView.count(
-                      crossAxisCount: 3,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
-                      childAspectRatio: 1.0,
-                      children: [
-                        _NavCard(
-                          title: 'Profile',
-                          icon: Icons.person,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const ProfileTab()),
-                          ),
-                          primaryColor: primaryColor,
-                          cardColor: cardColor,
-                          cardHeight: constraints.maxHeight / 2 - 8,
-                        ),
-                        _NavCard(
-                          title: 'Home',
-                          icon: Icons.home,
-                          onTap: () {},
-                          primaryColor: primaryColor,
-                          cardColor: cardColor,
-                          cardHeight: constraints.maxHeight / 2 - 8,
-                        ),
-                        _NavCard(
-                          title: 'Tickets',
-                          icon: Icons.confirmation_number,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const TicketsTab()),
-                          ),
-                          primaryColor: primaryColor,
-                          cardColor: cardColor,
-                          cardHeight: constraints.maxHeight / 2 - 8,
-                        ),
-                        _NavCard(
-                          title: 'Customers',
-                          icon: Icons.people,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const CustomersTab()),
-                          ),
-                          primaryColor: primaryColor,
-                          cardColor: cardColor,
-                          cardHeight: constraints.maxHeight / 2 - 8,
-                        ),
-                        _NavCard(
-                          title: 'Leads',
-                          icon: Icons.leaderboard,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const LeadsTab()),
-                          ),
-                          primaryColor: primaryColor,
-                          cardColor: cardColor,
-                          cardHeight: constraints.maxHeight / 2 - 8,
-                        ),
-                        _NavCard(
-                          title: 'Notifications',
-                          icon: Icons.notifications,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const NotificationsTab()),
-                          ),
-                          primaryColor: primaryColor,
-                          cardColor: cardColor,
-                          cardHeight: constraints.maxHeight / 2 - 8,
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
@@ -352,25 +304,30 @@ class HomeScreen extends StatelessWidget {
     required VoidCallback onTap,
     required Color primaryColor,
   }) {
+    final double scaleFactor = MediaQuery.of(context).textScaleFactor;
+    final double devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
+
     return ListTile(
       leading: Icon(
         icon,
         color: primaryColor,
-        size: 20,
+        size: 24,
       ),
       title: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontFamily: 'Nunito',
-          fontSize: 14,
-          color: Colors.black,
-          fontWeight: FontWeight.normal, // Set to normal to remove bold
+          fontSize: 14 * scaleFactor,
+          color: Colors.black87,
         ),
       ),
       onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+      contentPadding: EdgeInsets.symmetric(
+        horizontal: 16 / devicePixelRatio,
+        vertical: 2 / devicePixelRatio,
+      ),
       tileColor: Colors.transparent,
-      hoverColor: primaryColor.withOpacity(0.3),
+      hoverColor: primaryColor.withOpacity(0.1),
       dense: true,
     );
   }
@@ -382,7 +339,8 @@ class _NavCard extends StatelessWidget {
   final VoidCallback onTap;
   final Color primaryColor;
   final Color cardColor;
-  final double cardHeight;
+  final double scaleFactor;
+  final double devicePixelRatio;
 
   const _NavCard({
     required this.title,
@@ -390,40 +348,40 @@ class _NavCard extends StatelessWidget {
     required this.onTap,
     required this.primaryColor,
     required this.cardColor,
-    required this.cardHeight,
+    required this.scaleFactor,
+    required this.devicePixelRatio,
   });
 
   @override
   Widget build(BuildContext context) {
-    final iconSize = cardHeight * 0.225;
-
     return Card(
-      elevation: 1,
+      elevation: 3,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12 / devicePixelRatio),
       ),
       color: cardColor,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12 / devicePixelRatio),
         splashColor: primaryColor.withOpacity(0.2),
         highlightColor: primaryColor.withOpacity(0.1),
         child: Padding(
-          padding: const EdgeInsets.all(12.0),
+          padding: EdgeInsets.all(16.0 / devicePixelRatio),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 icon,
                 color: primaryColor,
-                size: iconSize,
+                size: 40,
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8 / devicePixelRatio),
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Nunito',
-                  fontSize: 12,
+                  fontSize: 12 * scaleFactor,
+                  fontWeight: FontWeight.w600,
                   color: Colors.black87,
                 ),
                 textAlign: TextAlign.center,
