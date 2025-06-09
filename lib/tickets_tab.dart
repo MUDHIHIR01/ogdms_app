@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:untitled1/api_service.dart';
 import 'package:untitled1/home_screen.dart';
 import 'package:untitled1/ticket_form_screen.dart';
+import 'package:intl/intl.dart'; // For formatting dates
 
 class TicketsTab extends StatefulWidget {
   const TicketsTab({super.key});
@@ -30,8 +31,7 @@ class _TicketsTabState extends State<TicketsTab> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to load tickets: $e',
-                style: const TextStyle(fontFamily: 'Nunito', fontSize: 14)),
+            content: Text('Failed to load tickets: $e', style: const TextStyle(fontFamily: 'Nunito', fontSize: 14)),
           ),
         );
       }
@@ -55,12 +55,16 @@ class _TicketsTabState extends State<TicketsTab> {
           final customerName = ticket['customer']?['name']?.toLowerCase() ?? '';
           final siteName = ticket['customer']?['site']?['name']?.toLowerCase() ?? '';
           final serviceType = ticket['service_type']?['name']?.toLowerCase() ?? '';
-          final status = ticket['status']?.toLowerCase() ?? '';
+          final notes = ticket['notes']?.toLowerCase() ?? '';
+          final phone = ticket['customer']?['phone']?.toLowerCase() ?? '';
+          final email = ticket['customer']?['email']?.toLowerCase() ?? '';
           final queryLower = query.toLowerCase();
           return customerName.contains(queryLower) ||
               siteName.contains(queryLower) ||
               serviceType.contains(queryLower) ||
-              status.contains(queryLower);
+              notes.contains(queryLower) ||
+              phone.contains(queryLower) ||
+              email.contains(queryLower);
         }).toList();
       }
     });
@@ -70,7 +74,6 @@ class _TicketsTabState extends State<TicketsTab> {
   Widget build(BuildContext context) {
     const primaryColor = Color(0xFFDF0613);
     const backgroundColor = Colors.white;
-    const cardColor = Colors.white;
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -93,38 +96,17 @@ class _TicketsTabState extends State<TicketsTab> {
             padding: const EdgeInsets.all(12.0),
             child: TextField(
               decoration: InputDecoration(
-                hintText: 'Search tickets by customer, site, service, or status...',
-                hintStyle: TextStyle(
-                  color: Colors.grey[600],
-                  fontFamily: 'Nunito',
-                  fontSize: 14,
-                ),
+                hintText: 'Search by customer, site, service, notes, phone, or email...',
+                hintStyle: TextStyle(color: Colors.grey[600], fontFamily: 'Nunito', fontSize: 14),
                 filled: true,
                 fillColor: Colors.grey[100],
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: primaryColor, width: 1),
-                ),
-                prefixIcon: Icon(
-                  Icons.search,
-                  color: Colors.grey[600],
-                  size: 24,
-                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: primaryColor, width: 1)),
+                prefixIcon: Icon(Icons.search, color: Colors.grey[600], size: 24),
                 contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
               ),
-              style: const TextStyle(
-                color: Colors.black87,
-                fontFamily: 'Nunito',
-                fontSize: 14,
-              ),
+              style: const TextStyle(color: Colors.black87, fontFamily: 'Nunito', fontSize: 14),
               onChanged: (value) {
                 _ticketsFuture.then((tickets) => _filterTickets(value, tickets));
               },
@@ -155,10 +137,7 @@ class _TicketsTabState extends State<TicketsTab> {
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
-                          child: const Text(
-                            'Retry',
-                            style: TextStyle(fontFamily: 'Nunito', fontSize: 14),
-                          ),
+                          child: const Text('Retry', style: TextStyle(fontFamily: 'Nunito', fontSize: 14)),
                         ),
                       ],
                     ),
@@ -167,19 +146,13 @@ class _TicketsTabState extends State<TicketsTab> {
                 final tickets = snapshot.data ?? [];
                 if (tickets.isEmpty) {
                   return const Center(
-                    child: Text(
-                      'No tickets available',
-                      style: TextStyle(fontFamily: 'Nunito', fontSize: 14),
-                    ),
+                    child: Text('No tickets available', style: TextStyle(fontFamily: 'Nunito', fontSize: 14)),
                   );
                 }
                 final displayTickets = _searchQuery.isEmpty ? tickets : _filteredTickets;
                 if (displayTickets.isEmpty && _searchQuery.isNotEmpty) {
                   return const Center(
-                    child: Text(
-                      'No matching tickets',
-                      style: TextStyle(fontFamily: 'Nunito', fontSize: 14),
-                    ),
+                    child: Text('No matching tickets', style: TextStyle(fontFamily: 'Nunito', fontSize: 14)),
                   );
                 }
                 return ListView.builder(
@@ -198,7 +171,7 @@ class _TicketsTabState extends State<TicketsTab> {
             child: ElevatedButton(
               onPressed: () => Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => const HomeScreen(username: 'Guest', role: '',)),
+                MaterialPageRoute(builder: (context) => const HomeScreen(username: 'Guest', role: '')),
               ),
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 48),
@@ -208,11 +181,7 @@ class _TicketsTabState extends State<TicketsTab> {
               ),
               child: const Text(
                 'Back to Home',
-                style: TextStyle(
-                  fontFamily: 'Nunito',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(fontFamily: 'Nunito', fontSize: 14, fontWeight: FontWeight.w600),
               ),
             ),
           ),
@@ -230,18 +199,30 @@ class _TicketsTabState extends State<TicketsTab> {
   }
 
   Widget _buildTicketCard(BuildContext context, Map<String, dynamic> ticket) {
+    // Extract ticket details
     final customerName = ticket['customer']?['name'] ?? 'Unknown';
+    final customerPhone = ticket['customer']?['phone'] ?? 'N/A';
+    final customerEmail = ticket['customer']?['email'] ?? 'N/A';
+    final customerAddress = ticket['customer']?['address'] ?? 'N/A';
     final siteName = ticket['customer']?['site']?['name'] ?? 'Unknown';
+    final clusterName = ticket['customer']?['site']?['cluster']?['name'] ?? 'N/A';
+    final townName = ticket['customer']?['site']?['cluster']?['town']?['name'] ?? 'N/A';
     final serviceType = ticket['service_type']?['name'] ?? 'Unknown';
-    final status = ticket['status']?.toUpperCase() ?? 'Unknown';
+    final status = ticket['status']?.toString().capitalize() ?? 'N/A';
+    final notes = ticket['notes'] ?? 'No notes';
+    final scheduledAt = ticket['scheduled_at'] != null
+        ? DateFormat('MMM dd, yyyy HH:mm').format(DateTime.parse(ticket['scheduled_at']))
+        : 'Not scheduled';
+    final createdAt = ticket['created_at'] != null
+        ? DateFormat('MMM dd, yyyy HH:mm').format(DateTime.parse(ticket['created_at']))
+        : 'N/A';
 
     return Card(
       elevation: 3,
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      color: Colors.white, // Explicit white background
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      color: Colors.white,
+      child: ExpansionTile(
         leading: CircleAvatar(
           backgroundColor: const Color(0xFFDF0613),
           radius: 20,
@@ -257,59 +238,74 @@ class _TicketsTabState extends State<TicketsTab> {
         ),
         title: Text(
           customerName,
-          style: const TextStyle(
-            fontFamily: 'Nunito',
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
+          style: const TextStyle(fontFamily: 'Nunito', fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87),
+        ),
+        subtitle: Text(
+          'Service: $serviceType | Status: $status',
+          style: const TextStyle(fontFamily: 'Nunito', fontSize: 14, color: Colors.black54),
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildDetailRow('Phone', customerPhone),
+                _buildDetailRow('Email', customerEmail),
+                _buildDetailRow('Address', customerAddress),
+                _buildDetailRow('Site', siteName),
+                _buildDetailRow('Cluster', clusterName),
+                _buildDetailRow('Town', townName),
+                _buildDetailRow('Scheduled', scheduledAt),
+                _buildDetailRow('Created', createdAt),
+                _buildDetailRow('Notes', notes, maxLines: 3),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit, color: Color(0xFFDF0613), size: 24),
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => TicketFormScreen(ticket: ticket)),
+                      ).then((_) => _refreshTickets()),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red, size: 24),
+                      onPressed: () => _deleteTicket(context, ticket['id']),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Text(
-              'Site: $siteName',
-              style: const TextStyle(
-                fontFamily: 'Nunito',
-                fontSize: 14,
-                color: Colors.black54,
-              ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, {int maxLines = 1}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontFamily: 'Nunito', fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
             ),
-            Text(
-              'Service: $serviceType',
-              style: const TextStyle(
-                fontFamily: 'Nunito',
-                fontSize: 14,
-                color: Colors.black54,
-              ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontFamily: 'Nunito', fontSize: 14, color: Colors.black54),
+              maxLines: maxLines,
+              overflow: TextOverflow.ellipsis,
             ),
-            Text(
-              'Status: $status',
-              style: const TextStyle(
-                fontFamily: 'Nunito',
-                fontSize: 14,
-                color: Colors.black54,
-              ),
-            ),
-          ],
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.edit, color: Color(0xFFDF0613), size: 24),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => TicketFormScreen(ticket: ticket)),
-              ).then((_) => _refreshTickets()),
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red, size: 24),
-              onPressed: () => _deleteTicket(context, ticket['id']),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -317,26 +313,28 @@ class _TicketsTabState extends State<TicketsTab> {
   Future<void> _deleteTicket(BuildContext context, String? ticketId) async {
     if (ticketId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Invalid ticket ID', style: TextStyle(fontFamily: 'Nunito', fontSize: 14)),
-        ),
+        const SnackBar(content: Text('Invalid ticket ID', style: TextStyle(fontFamily: 'Nunito', fontSize: 14))),
       );
       return;
     }
     try {
       await ApiService.deleteTicket(ticketId);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Ticket deleted successfully', style: TextStyle(fontFamily: 'Nunito', fontSize: 14)),
-        ),
+        const SnackBar(content: Text('Ticket deleted successfully', style: TextStyle(fontFamily: 'Nunito', fontSize: 14))),
       );
       _refreshTickets();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to delete ticket: $e', style: const TextStyle(fontFamily: 'Nunito', fontSize: 14)),
-        ),
+        SnackBar(content: Text('Failed to delete ticket: $e', style: const TextStyle(fontFamily: 'Nunito', fontSize: 14))),
       );
     }
+  }
+}
+
+// Extension to capitalize strings
+extension StringExtension on String {
+  String capitalize() {
+    if (isEmpty) return this;
+    return '${this[0].toUpperCase()}${substring(1).toLowerCase()}';
   }
 }

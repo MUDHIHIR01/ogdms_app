@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // Make sure you have this in pubspec.yaml
+import 'package:geolocator/geolocator.dart';
+import 'package:intl/intl.dart';
 import 'package:untitled1/api_service.dart';
 import 'package:untitled1/home_screen.dart';
 
@@ -13,7 +14,7 @@ class LeadsTab extends StatefulWidget {
 class _LeadsTabState extends State<LeadsTab> {
   late Future<List<Map<String, dynamic>>> _leadsFuture;
   List<Map<String, dynamic>> _sites = [];
-  List<Map<String, dynamic>> _allLeads = []; // Store the master list of leads
+  List<Map<String, dynamic>> _allLeads = [];
   List<Map<String, dynamic>> _filteredLeads = [];
   final TextEditingController _searchController = TextEditingController();
   bool _isLoadingSites = true;
@@ -29,12 +30,10 @@ class _LeadsTabState extends State<LeadsTab> {
   Future<List<Map<String, dynamic>>> _fetchLeads() async {
     try {
       final leads = await ApiService.getLeads();
-      await _loadSites();
       if (mounted) {
         setState(() {
-          _allLeads = leads; // Update the master list
-          _filteredLeads = leads; // Initially, filtered list is the full list
-          _filterLeads(); // Apply any existing search query
+          _allLeads = leads;
+          _filteredLeads = leads;
         });
       }
       return leads;
@@ -53,15 +52,11 @@ class _LeadsTabState extends State<LeadsTab> {
     try {
       _sites = await ApiService.getSites();
       if (mounted) {
-        setState(() {
-          _isLoadingSites = false;
-        });
+        setState(() => _isLoadingSites = false);
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _isLoadingSites = false;
-        });
+        setState(() => _isLoadingSites = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to load sites: $e', style: const TextStyle(fontFamily: 'Nunito', fontSize: 14))),
         );
@@ -83,9 +78,43 @@ class _LeadsTabState extends State<LeadsTab> {
 
   void _refreshLeads() {
     setState(() {
-      _searchController.clear(); // Clear search on refresh
+      _searchController.clear();
       _leadsFuture = _fetchLeads();
     });
+  }
+
+  Future<Map<String, String>?> _getCurrentLocationAsString() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        throw 'Location services are disabled. Please enable them.';
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          throw 'Location permissions are denied.';
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        throw 'Location permissions are permanently denied.';
+      }
+
+      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      return {
+        'latitude': position.latitude.toString(),
+        'longitude': position.longitude.toString(),
+      };
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to get location: $e', style: const TextStyle(fontFamily: 'Nunito', fontSize: 14))),
+        );
+      }
+      return null;
+    }
   }
 
   Widget _buildInfoRow(String label, String value) {
@@ -95,10 +124,7 @@ class _LeadsTabState extends State<LeadsTab> {
         text: TextSpan(
           style: const TextStyle(fontFamily: 'Nunito', fontSize: 13.5, color: Colors.black54),
           children: [
-            TextSpan(
-              text: '$label: ',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
+            TextSpan(text: '$label: ', style: const TextStyle(fontWeight: FontWeight.bold)),
             TextSpan(text: value),
           ],
         ),
@@ -119,11 +145,7 @@ class _LeadsTabState extends State<LeadsTab> {
   @override
   Widget build(BuildContext context) {
     const primaryColor = Color(0xFFDF0613);
-    const backgroundColor = Colors.white;
-    const cardColor = Colors.white;
-
     return Scaffold(
-      backgroundColor: backgroundColor,
       appBar: AppBar(
         title: const Text('Leads', style: TextStyle(color: Colors.white, fontSize: 18, fontFamily: 'Nunito', fontWeight: FontWeight.bold)),
         backgroundColor: primaryColor,
@@ -131,7 +153,6 @@ class _LeadsTabState extends State<LeadsTab> {
       ),
       body: Column(
         children: [
-          // Search Bar
           Padding(
             padding: const EdgeInsets.all(12),
             child: TextField(
@@ -143,16 +164,12 @@ class _LeadsTabState extends State<LeadsTab> {
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                 prefixIcon: const Icon(Icons.search, color: primaryColor),
                 suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                  icon: const Icon(Icons.clear, color: primaryColor),
-                  onPressed: () => _searchController.clear(),
-                )
+                    ? IconButton(icon: const Icon(Icons.clear, color: primaryColor), onPressed: () => _searchController.clear())
                     : null,
               ),
               style: const TextStyle(fontFamily: 'Nunito', fontSize: 14, color: Colors.black87),
             ),
           ),
-          // Leads List
           Expanded(
             child: FutureBuilder<List<Map<String, dynamic>>>(
               future: _leadsFuture,
@@ -172,25 +189,23 @@ class _LeadsTabState extends State<LeadsTab> {
                   itemCount: _filteredLeads.length,
                   itemBuilder: (context, index) {
                     final lead = _filteredLeads[index];
-                    final site = _sites.firstWhere(
-                          (s) => s['id'] == lead['site_id'],
-                      orElse: () => <String, dynamic>{},
-                    );
-
+                    final site = _sites.firstWhere((s) => s['id'] == lead['site_id'], orElse: () => <String, dynamic>{});
                     final leadName = lead['name'] ?? 'Unknown Lead';
                     final phone = lead['phone'] ?? 'N/A';
                     final email = lead['email'] ?? 'N/A';
                     final siteName = site['name'] ?? 'Unknown Site';
                     final siteId = site['site_id']?.toString() ?? 'N/A';
                     final clusterName = site['cluster']?['name'] ?? 'Unknown Cluster';
-                    final notes = lead['notes'] != null && lead['notes'].isNotEmpty ? lead['notes'] : 'No notes provided';
+                    final notes = lead['notes']?.isNotEmpty == true ? lead['notes'] : 'No notes provided';
                     final createdAt = _formatDate(lead['created_at']);
+                    final latitude = lead['latitude'] ?? 'N/A';
+                    final longitude = lead['longitude'] ?? 'N/A';
 
                     return Card(
                       elevation: 3,
                       margin: const EdgeInsets.only(bottom: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      color: cardColor,
+                      color: Colors.white,
                       child: Padding(
                         padding: const EdgeInsets.all(12.0),
                         child: Row(
@@ -208,10 +223,7 @@ class _LeadsTabState extends State<LeadsTab> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    leadName,
-                                    style: const TextStyle(fontFamily: 'Nunito', fontSize: 16, fontWeight: FontWeight.w700, color: Colors.black87),
-                                  ),
+                                  Text(leadName, style: const TextStyle(fontFamily: 'Nunito', fontSize: 16, fontWeight: FontWeight.w700, color: Colors.black87)),
                                   const SizedBox(height: 4),
                                   _buildInfoRow('Phone', phone),
                                   _buildInfoRow('Email', email),
@@ -219,10 +231,11 @@ class _LeadsTabState extends State<LeadsTab> {
                                   _buildInfoRow('Site', '$siteName ($siteId)'),
                                   _buildInfoRow('Notes', notes),
                                   _buildInfoRow('Created', createdAt),
+                                  _buildInfoRow('Latitude', latitude),
+                                  _buildInfoRow('Longitude', longitude),
                                 ],
                               ),
                             ),
-                            const SizedBox(width: 8),
                             Column(
                               mainAxisAlignment: MainAxisAlignment.start,
                               children: [
@@ -240,8 +253,16 @@ class _LeadsTabState extends State<LeadsTab> {
                                   width: 36,
                                   child: IconButton(
                                     padding: EdgeInsets.zero,
+                                    icon: const Icon(Icons.person_add, color: Colors.green, size: 22),
+                                    onPressed: () => _showCreateCustomerDialog(context, lead),
+                                  ),
+                                ),
+                                SizedBox(
+                                  height: 36,
+                                  width: 36,
+                                  child: IconButton(
+                                    padding: EdgeInsets.zero,
                                     icon: const Icon(Icons.delete, color: Colors.red, size: 22),
-                                    // UPDATED: Pass ID as a string for type safety
                                     onPressed: () => _deleteLead(context, lead['id']?.toString()),
                                   ),
                                 ),
@@ -256,7 +277,6 @@ class _LeadsTabState extends State<LeadsTab> {
               },
             ),
           ),
-          // Back Button
           Padding(
             padding: const EdgeInsets.all(12),
             child: ElevatedButton(
@@ -283,20 +303,32 @@ class _LeadsTabState extends State<LeadsTab> {
     );
   }
 
-  void _showLeadActionSheet(BuildContext context, Map<String, dynamic>? lead) {
+  void _showLeadActionSheet(BuildContext context, Map<String, dynamic>? lead) async {
     final _nameController = TextEditingController(text: lead?['name'] ?? '');
     final _emailController = TextEditingController(text: lead?['email'] ?? '');
     final _phoneController = TextEditingController(text: lead?['phone'] ?? '');
     final _notesController = TextEditingController(text: lead?['notes'] ?? '');
+    final _latitudeController = TextEditingController(text: lead?['latitude'] ?? '');
+    final _longitudeController = TextEditingController(text: lead?['longitude'] ?? '');
     String? _selectedSiteId = lead?['site_id']?.toString();
     final _formKey = GlobalKey<FormState>();
+    bool _isLoadingLocation = true;
+
+    // Fetch location when opening the form
+    Map<String, String>? location;
+    if (lead == null || (lead['latitude'] == null && lead['longitude'] == null)) {
+      location = await _getCurrentLocationAsString();
+      if (location != null) {
+        _latitudeController.text = location['latitude']!;
+        _longitudeController.text = location['longitude']!;
+      }
+    }
+    _isLoadingLocation = false;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(12))),
       builder: (context) => StatefulBuilder(
         builder: (BuildContext context, StateSetter modalSetState) {
           return DraggableScrollableSheet(
@@ -338,27 +370,81 @@ class _LeadsTabState extends State<LeadsTab> {
                       _buildTextFormField(controller: _phoneController, label: 'Phone', icon: Icons.phone, keyboardType: TextInputType.phone, validator: (value) => value!.isEmpty ? 'Enter phone' : null),
                       const SizedBox(height: 12),
                       _buildTextFormField(controller: _notesController, label: 'Notes', icon: Icons.note, maxLines: 3),
+                      const SizedBox(height: 12),
+                      _buildTextFormField(
+                        controller: _latitudeController,
+                        label: 'Latitude',
+                        icon: Icons.map,
+                        keyboardType: TextInputType.number,
+                        enabled: false, // Read-only
+                        validator: (value) => value!.isEmpty ? 'Latitude is required' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildTextFormField(
+                        controller: _longitudeController,
+                        label: 'Longitude',
+                        icon: Icons.map,
+                        keyboardType: TextInputType.number,
+                        enabled: false, // Read-only
+                        validator: (value) => value!.isEmpty ? 'Longitude is required' : null,
+                      ),
                       const SizedBox(height: 16),
                       ElevatedButton(
-                        onPressed: () async {
-                          if (_formKey.currentState!.validate()) {
-                            final leadData = {'site_id': _selectedSiteId, 'name': _nameController.text, 'email': _emailController.text, 'phone': _phoneController.text, 'notes': _notesController.text};
-                            try {
-                              if (lead == null) {
-                                await ApiService.createLead(leadData);
-                              } else {
-                                await ApiService.updateLead(lead['id'].toString(), leadData);
-                              }
-                              Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lead ${lead == null ? 'added' : 'updated'} successfully')));
-                              _refreshLeads();
-                            } catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                            }
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 48), backgroundColor: const Color(0xFFDF0613), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                        child: Text(lead == null ? 'Add Lead' : 'Update Lead'),
+                        onPressed: _isLoadingLocation
+                            ? null
+                            : () async {
+                                if (_formKey.currentState!.validate()) {
+                                  if (_latitudeController.text.isEmpty || _longitudeController.text.isEmpty) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Location data is required. Please try again.', style: TextStyle(fontFamily: 'Nunito', fontSize: 14))),
+                                    );
+                                    return;
+                                  }
+                                  final leadData = {
+                                    'site_id': _selectedSiteId,
+                                    'name': _nameController.text,
+                                    'email': _emailController.text,
+                                    'phone': _phoneController.text,
+                                    'notes': _notesController.text,
+                                    'latitude': _latitudeController.text,
+                                    'longitude': _longitudeController.text,
+                                  };
+                                  try {
+                                    if (lead == null) {
+                                      await ApiService.createLead(leadData);
+                                    } else {
+                                      await ApiService.updateLead(lead['id'].toString(), leadData);
+                                    }
+                                    if (mounted) {
+                                      Navigator.pop(context);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Lead ${lead == null ? 'added' : 'updated'} successfully', style: const TextStyle(fontFamily: 'Nunito', fontSize: 14))),
+                                      );
+                                      _refreshLeads();
+                                    }
+                                  } catch (e) {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Error: $e', style: const TextStyle(fontFamily: 'Nunito', fontSize: 14))),
+                                      );
+                                    }
+                                  }
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(double.infinity, 48),
+                          backgroundColor: const Color(0xFFDF0613),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: _isLoadingLocation
+                            ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 3)
+                            : Text(lead == null ? 'Add Lead' : 'Update Lead', style: const TextStyle(fontFamily: 'Nunito', fontSize: 14, fontWeight: FontWeight.w600)),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Cancel', style: TextStyle(fontFamily: 'Nunito', fontSize: 14, color: Color(0xFFDF0613), fontWeight: FontWeight.w600)),
                       ),
                     ],
                   ),
@@ -371,15 +457,155 @@ class _LeadsTabState extends State<LeadsTab> {
     );
   }
 
-  Widget _buildTextFormField({ required TextEditingController controller, required String label, required IconData icon, TextInputType? keyboardType, String? Function(String?)? validator, int maxLines = 1}) {
-    return TextFormField(controller: controller, decoration: InputDecoration(labelText: label, filled: true, fillColor: Colors.grey[100], border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), prefixIcon: Icon(icon, color: const Color(0xFFDF0613))), keyboardType: keyboardType, validator: validator, maxLines: maxLines);
+  void _showCreateCustomerDialog(BuildContext context, Map<String, dynamic> lead) async {
+    final _nameController = TextEditingController(text: lead['name'] ?? '');
+    final _emailController = TextEditingController(text: lead['email'] ?? '');
+    final _phoneController = TextEditingController(text: lead['phone'] ?? '');
+    final _addressController = TextEditingController();
+    final _idTypeController = TextEditingController();
+    final _idNumberController = TextEditingController();
+    final _tinNumberController = TextEditingController();
+    String? _selectedSiteId = lead['site_id']?.toString();
+    final _formKey = GlobalKey<FormState>();
+    bool _isLoadingLocation = true;
+
+    // Auto-fetch location
+    Map<String, String>? location = await _getCurrentLocationAsString();
+    _isLoadingLocation = false;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: const Text('Convert Lead to Customer', style: TextStyle(fontFamily: 'Nunito', fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: _selectedSiteId,
+                    decoration: InputDecoration(
+                      labelText: 'Site',
+                      filled: true,
+                      fillColor: Colors.grey[100],
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      prefixIcon: const Icon(Icons.location_on, color: Color(0xFFDF0613)),
+                    ),
+                    hint: _isLoadingSites ? const Text('Loading sites...') : const Text('Select a site'),
+                    items: _sites.map((site) => DropdownMenuItem<String>(value: site['id'].toString(), child: Text(site['name'] ?? 'Unknown Site'))).toList(),
+                    onChanged: _isLoadingSites || _sites.isEmpty ? null : (value) => _selectedSiteId = value,
+                    validator: (value) => value == null ? 'Please select a site' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildTextFormField(controller: _nameController, label: 'Name', icon: Icons.person, validator: (value) => value!.isEmpty ? 'Enter name' : null),
+                  const SizedBox(height: 12),
+                  _buildTextFormField(controller: _emailController, label: 'Email', icon: Icons.email, keyboardType: TextInputType.emailAddress, validator: (value) => value!.isEmpty ? 'Enter email' : null),
+                  const SizedBox(height: 12),
+                  _buildTextFormField(controller: _phoneController, label: 'Phone', icon: Icons.phone, keyboardType: TextInputType.phone, validator: (value) => value!.isEmpty ? 'Enter phone' : null),
+                  const SizedBox(height: 12),
+                  _buildTextFormField(controller: _addressController, label: 'Address', icon: Icons.home, validator: (value) => value!.isEmpty ? 'Enter address' : null),
+                  const SizedBox(height: 12),
+                  _buildTextFormField(controller: _idTypeController, label: 'ID Type', icon: Icons.badge, validator: (value) => value!.isEmpty ? 'Enter ID type' : null),
+                  const SizedBox(height: 12),
+                  _buildTextFormField(controller: _idNumberController, label: 'ID Number', icon: Icons.perm_identity, validator: (value) => value!.isEmpty ? 'Enter ID number' : null),
+                  const SizedBox(height: 12),
+                  _buildTextFormField(controller: _tinNumberController, label: 'TIN Number', icon: Icons.account_balance, validator: (value) => value!.isEmpty ? 'Enter TIN number' : null),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel', style: TextStyle(fontFamily: 'Nunito')),
+            ),
+            ElevatedButton(
+              onPressed: _isLoadingLocation
+                  ? null
+                  : () async {
+                      if (_formKey.currentState!.validate()) {
+                        if (location == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Location data is required. Please try again.', style: TextStyle(fontFamily: 'Nunito', fontSize: 14))),
+                          );
+                          return;
+                        }
+                        final customerData = {
+                          'site_id': _selectedSiteId,
+                          'name': _nameController.text,
+                          'email': _emailController.text,
+                          'phone': _phoneController.text,
+                          'address': _addressController.text,
+                          'id_type': _idTypeController.text,
+                          'id_number': _idNumberController.text,
+                          'tin_number': _tinNumberController.text,
+                          'latitude': location['latitude'],
+                          'longitude': location['longitude'],
+                        };
+                        try {
+                          await ApiService.createCustomer(customerData);
+                          if (mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Customer created successfully', style: TextStyle(fontFamily: 'Nunito', fontSize: 14))),
+                            );
+                            _refreshLeads();
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Error: $e', style: const TextStyle(fontFamily: 'Nunito', fontSize: 14))),
+                            );
+                          }
+                        }
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFDF0613),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: _isLoadingLocation
+                  ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 3)
+                  : const Text('Create Customer', style: TextStyle(fontFamily: 'Nunito', fontSize: 14, fontWeight: FontWeight.w600)),
+            ),
+          ],
+        );
+      },
+    );
   }
 
-  // --- NEW AND IMPROVED DELETE FUNCTION ---
+  Widget _buildTextFormField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+    int maxLines = 1,
+    bool enabled = true,
+  }) {
+    return TextFormField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: label,
+        filled: true,
+        fillColor: Colors.grey[100],
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        prefixIcon: Icon(icon, color: const Color(0xFFDF0613)),
+      ),
+      keyboardType: keyboardType,
+      validator: validator,
+      maxLines: maxLines,
+      enabled: enabled,
+    );
+  }
+
   Future<void> _deleteLead(BuildContext context, String? leadId) async {
     if (leadId == null) return;
 
-    // 1. Show a confirmation dialog before deleting
     final bool? shouldDelete = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
@@ -402,20 +628,14 @@ class _LeadsTabState extends State<LeadsTab> {
       },
     );
 
-    // If the user cancels, do nothing
-    if (shouldDelete != true) {
-      return;
-    }
+    if (shouldDelete != true) return;
 
-    // 2. Optimistic UI update
     final int originalIndex = _filteredLeads.indexWhere((lead) => lead['id'].toString() == leadId);
-    if (originalIndex == -1) return; // Should not happen
+    if (originalIndex == -1) return;
 
     final leadToDelete = _filteredLeads[originalIndex];
     final originalAllLeadsIndex = _allLeads.indexWhere((lead) => lead['id'].toString() == leadId);
 
-
-    // Remove from the displayed list immediately
     setState(() {
       _filteredLeads.removeAt(originalIndex);
       if (originalAllLeadsIndex != -1) {
@@ -424,20 +644,17 @@ class _LeadsTabState extends State<LeadsTab> {
     });
 
     try {
-      // 3. Make the API call in the background
       await ApiService.deleteLead(leadId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Lead deleted successfully')),
+          const SnackBar(content: Text('Lead deleted successfully', style: TextStyle(fontFamily: 'Nunito', fontSize: 14))),
         );
       }
     } catch (e) {
-      // 4. If the API call fails, restore the lead and show an error
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete lead: $e')),
+          SnackBar(content: Text('Failed to delete lead: $e', style: const TextStyle(fontFamily: 'Nunito', fontSize: 14))),
         );
-        // Add the lead back to the list in its original position
         setState(() {
           _filteredLeads.insert(originalIndex, leadToDelete);
           if (originalAllLeadsIndex != -1) {

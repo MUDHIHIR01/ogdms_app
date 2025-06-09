@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:untitled1/api_service.dart';
-import 'package:untitled1/home_screen.dart';
-import 'package:intl/intl.dart';
 
 class TicketFormScreen extends StatefulWidget {
   final Map<String, dynamic>? ticket;
@@ -15,253 +13,236 @@ class TicketFormScreen extends StatefulWidget {
 
 class _TicketFormScreenState extends State<TicketFormScreen> {
   final _formKey = GlobalKey<FormState>();
+  late TextEditingController _notesController;
   String? _selectedCustomerId;
   String? _selectedServiceTypeId;
-  String? _selectedDeviceTypeId;
-  String? _installerId;
-  String? _complaintId;
-  DateTime? _scheduledAt;
   List<Map<String, dynamic>> _customers = [];
   List<Map<String, dynamic>> _serviceTypes = [];
-  List<Map<String, dynamic>> _deviceTypes = [];
   bool _isLoading = true;
+  bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    if (widget.ticket != null) {
-      _selectedCustomerId = widget.ticket!['customer_id'];
-      _selectedServiceTypeId = widget.ticket!['service_type_id'];
-      _selectedDeviceTypeId = widget.ticket!['device_type_id'];
-      _installerId = widget.ticket!['installer_id'];
-      _complaintId = widget.ticket!['complaint_id'];
-      _scheduledAt = widget.ticket!['scheduled_at'] != null
-          ? DateTime.parse(widget.ticket!['scheduled_at'])
-          : null;
-    } else if (widget.customerId != null) {
-      _selectedCustomerId = widget.customerId;
-    }
+    _notesController = TextEditingController(text: widget.ticket?['notes'] ?? '');
+    _selectedCustomerId = widget.ticket?['customer']?['id']?.toString() ?? widget.customerId;
+    _selectedServiceTypeId = widget.ticket?['service_type']?['id']?.toString();
     _loadData();
   }
 
-  void _loadData() async {
+  Future<void> _loadData() async {
     try {
-      _customers = await ApiService.getCustomers();
-      _serviceTypes = await ApiService.getServiceTypes();
-      _deviceTypes = await ApiService.getDeviceTypes();
-      setState(() => _isLoading = false);
+      final customers = await ApiService.getCustomers();
+      final serviceTypes = await ApiService.getServiceTypes();
+      if (mounted) {
+        setState(() {
+          _customers = customers;
+          _serviceTypes = serviceTypes;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading data: $e', style: const TextStyle(fontSize: 14))),
-      );
-    }
-  }
-
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _scheduledAt ?? DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-    );
-    if (picked != null && picked != _scheduledAt) {
-      setState(() => _scheduledAt = picked);
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load data: $e', style: const TextStyle(fontFamily: 'Nunito', fontSize: 14))),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    const primaryColor = Color(0xFFDF0613);
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text(
           widget.ticket == null ? 'Create Ticket' : 'Edit Ticket',
-          style: const TextStyle(color: Colors.white, fontSize: 16, fontFamily: 'Nunito'),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontFamily: 'Nunito',
+            fontWeight: FontWeight.bold,
+          ),
         ),
-        backgroundColor: const Color(0xFFDF0613),
+        backgroundColor: primaryColor,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFFDF0613)))
+          ? const Center(child: CircularProgressIndicator(color: primaryColor))
           : Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                DropdownButtonFormField<String>(
-                  value: _selectedCustomerId,
-                  decoration: const InputDecoration(
-                    labelText: 'Customer',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.person, color: Color(0xFFDF0613)),
-                  ),
-                  items: _customers.map((customer) {
-                    return DropdownMenuItem<String>(
-                      value: customer['id'],
-                      child: Text(
-                        '${customer['name'] ?? 'Unknown'} (${customer['site']?['name'] ?? 'No site'})',
-                        style: const TextStyle(fontSize: 14),
+              padding: const EdgeInsets.all(16),
+              child: Form(
+                key: _formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      DropdownButtonFormField<String>(
+                        value: _selectedCustomerId,
+                        decoration: InputDecoration(
+                          labelText: 'Customer',
+                          filled: true,
+                          fillColor: Colors.grey[100],
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFDF0613), width: 1)),
+                          prefixIcon: const Icon(Icons.person, color: Color(0xFFDF0613)),
+                        ),
+                        hint: _customers.isEmpty
+                            ? const Text('No customers available', style: TextStyle(fontFamily: 'Nunito', fontSize: 14))
+                            : const Text('Select a customer', style: TextStyle(fontFamily: 'Nunito', fontSize: 14)),
+                        items: _customers.isNotEmpty
+                            ? _customers.map((customer) {
+                                final customerId = customer['id']?.toString();
+                                return DropdownMenuItem<String>(
+                                  value: customerId,
+                                  child: Text(
+                                    '${customer['name'] ?? 'Unknown'} (${customer['site']?['name'] ?? 'No site'})',
+                                    style: const TextStyle(fontFamily: 'Nunito', fontSize: 14),
+                                  ),
+                                );
+                              }).toList()
+                            : [
+                                const DropdownMenuItem<String>(
+                                  value: null,
+                                  enabled: false,
+                                  child: Text('No customers available', style: TextStyle(fontFamily: 'Nunito', fontSize: 14, color: Colors.grey)),
+                                ),
+                              ],
+                        onChanged: _customers.isEmpty ? null : (value) => setState(() => _selectedCustomerId = value),
+                        validator: (value) => value == null && _customers.isNotEmpty ? 'Please select a customer' : null,
                       ),
-                    );
-                  }).toList(),
-                  onChanged: (value) => setState(() => _selectedCustomerId = value),
-                  validator: (value) => value == null ? 'Please select a customer' : null,
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: _selectedServiceTypeId,
-                  decoration: const InputDecoration(
-                    labelText: 'Service Type',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.build, color: Color(0xFFDF0613)),
-                  ),
-                  items: _serviceTypes.map((serviceType) {
-                    return DropdownMenuItem<String>(
-                      value: serviceType['id'],
-                      child: Text(serviceType['name'] ?? 'Unknown', style: const TextStyle(fontSize: 14)),
-                    );
-                  }).toList(),
-                  onChanged: (value) => setState(() => _selectedServiceTypeId = value),
-                  validator: (value) => value == null ? 'Please select a service type' : null,
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: _selectedDeviceTypeId,
-                  decoration: const InputDecoration(
-                    labelText: 'Device Type (Optional)',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.devices, color: Color(0xFFDF0613)),
-                  ),
-                  items: [
-                    const DropdownMenuItem<String>(
-                      value: null,
-                      child: Text('None', style: TextStyle(fontSize: 14)),
-                    ),
-                    ..._deviceTypes.map((deviceType) {
-                      return DropdownMenuItem<String>(
-                        value: deviceType['id'],
-                        child: Text(deviceType['name'] ?? 'Unknown', style: const TextStyle(fontSize: 14)),
-                      );
-                    }),
-                  ],
-                  onChanged: (value) => setState(() => _selectedDeviceTypeId = value),
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  initialValue: _installerId,
-                  decoration: const InputDecoration(
-                    labelText: 'Installer ID (Optional)',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.person_add, color: Color(0xFFDF0613)),
-                  ),
-                  onChanged: (value) => _installerId = value.isEmpty ? null : value,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  initialValue: _complaintId,
-                  decoration: const InputDecoration(
-                    labelText: 'Complaint ID (Optional)',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.report, color: Color(0xFFDF0613)),
-                  ),
-                  onChanged: (value) => _complaintId = value.isEmpty ? null : value,
-                ),
-                const SizedBox(height: 16),
-                InkWell(
-                  onTap: () => _selectDate(context),
-                  child: InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Scheduled At (Optional)',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.calendar_today, color: Color(0xFFDF0613)),
-                    ),
-                    child: Text(
-                      _scheduledAt == null
-                          ? 'Select date'
-                          : DateFormat('yyyy-MM-dd').format(_scheduledAt!),
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () async {
-                    if (_formKey.currentState!.validate()) {
-                      final ticketData = {
-                        'customer_id': _selectedCustomerId,
-                        'service_type_id': _selectedServiceTypeId,
-                        if (_selectedDeviceTypeId != null) 'device_type_id': _selectedDeviceTypeId,
-                        if (_installerId != null) 'installer_id': _installerId,
-                        if (_complaintId != null) 'complaint_id': _complaintId,
-                        if (_scheduledAt != null)
-                          'scheduled_at': _scheduledAt!.toIso8601String(),
-                      };
-                      try {
-                        if (widget.ticket == null) {
-                          await ApiService.createTicket(ticketData);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('Ticket created successfully',
-                                    style: TextStyle(fontSize: 14))),
-                          );
-                        } else {
-                          await ApiService.updateTicket(widget.ticket!['id'], ticketData);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('Ticket updated successfully',
-                                    style: TextStyle(fontSize: 14))),
-                          );
-                        }
-                        Navigator.pop(context);
-                      } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                              content: Text('Error: $e', style: const TextStyle(fontSize: 14))),
-                        );
-                      }
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 48),
-                    backgroundColor: const Color(0xFFDF0613),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  child: Text(
-                    widget.ticket == null ? 'Create Ticket' : 'Update Ticket',
-                    style: const TextStyle(fontSize: 14),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        value: _selectedServiceTypeId,
+                        decoration: InputDecoration(
+                          labelText: 'Service Type',
+                          filled: true,
+                          fillColor: Colors.grey[100],
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFDF0613), width: 1)),
+                          prefixIcon: const Icon(Icons.build, color: Color(0xFFDF0613)),
+                        ),
+                        hint: _serviceTypes.isEmpty
+                            ? const Text('No service types available', style: TextStyle(fontFamily: 'Nunito', fontSize: 14))
+                            : const Text('Select a service type', style: TextStyle(fontFamily: 'Nunito', fontSize: 14)),
+                        items: _serviceTypes.isNotEmpty
+                            ? _serviceTypes.map((service) {
+                                final serviceId = service['id']?.toString();
+                                return DropdownMenuItem<String>(
+                                  value: serviceId,
+                                  child: Text(service['name'] ?? 'Unknown Service', style: const TextStyle(fontFamily: 'Nunito', fontSize: 14)),
+                                );
+                              }).toList()
+                            : [
+                                const DropdownMenuItem<String>(
+                                  value: null,
+                                  enabled: false,
+                                  child: Text('No service types available', style: TextStyle(fontFamily: 'Nunito', fontSize: 14, color: Colors.grey)),
+                                ),
+                              ],
+                        onChanged: _serviceTypes.isEmpty ? null : (value) => setState(() => _selectedServiceTypeId = value),
+                        validator: (value) => value == null && _serviceTypes.isNotEmpty ? 'Please select a service type' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _notesController,
+                        decoration: InputDecoration(
+                          labelText: 'Notes (Optional)',
+                          filled: true,
+                          fillColor: Colors.grey[100],
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFDF0613), width: 1)),
+                          prefixIcon: const Icon(Icons.note, color: Color(0xFFDF0613)),
+                        ),
+                        style: const TextStyle(fontFamily: 'Nunito', fontSize: 14),
+                        maxLines: 4,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _isSaving
+                            ? null
+                            : () async {
+                                if (_formKey.currentState!.validate()) {
+                                  setState(() => _isSaving = true);
+                                  final ticketData = {
+                                    'customer_id': _selectedCustomerId,
+                                    'service_type_id': _selectedServiceTypeId,
+                                    if (_notesController.text.isNotEmpty) 'notes': _notesController.text,
+                                  };
+                                  try {
+                                    if (widget.ticket == null) {
+                                      await ApiService.createTicket(ticketData);
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('Ticket created successfully', style: TextStyle(fontFamily: 'Nunito', fontSize: 14)),
+                                          ),
+                                        );
+                                      }
+                                    } else {
+                                      await ApiService.updateTicket(widget.ticket!['id'].toString(), ticketData);
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('Ticket updated successfully', style: TextStyle(fontFamily: 'Nunito', fontSize: 14)),
+                                          ),
+                                        );
+                                      }
+                                    }
+                                    if (mounted) {
+                                      Navigator.pop(context);
+                                    }
+                                  } catch (e) {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Error: $e', style: const TextStyle(fontFamily: 'Nunito', fontSize: 14))),
+                                      );
+                                    }
+                                  } finally {
+                                    if (mounted) {
+                                      setState(() => _isSaving = false);
+                                    }
+                                  }
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(double.infinity, 48),
+                          backgroundColor: primaryColor,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: _isSaving
+                            ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 3)
+                            : Text(
+                                widget.ticket == null ? 'Create Ticket' : 'Update Ticket',
+                                style: const TextStyle(fontFamily: 'Nunito', fontSize: 14, fontWeight: FontWeight.w600),
+                              ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(fontFamily: 'Nunito', fontSize: 14, color: Color(0xFFDF0613), fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel',
-                      style: TextStyle(fontSize: 14, color: Color(0xFFDF0613))),
-                ),
-                const SizedBox(height: 8),
-                ElevatedButton(
-                  onPressed: () => Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const HomeScreen(username: 'Guest', role: '',),
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 48),
-                    backgroundColor: Colors.grey[300],
-                    foregroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  child: const Text('Back to Home', style: TextStyle(fontSize: 14)),
-                ),
-              ],
+              ),
             ),
-          ),
-        ),
-      ),
     );
+  }
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
   }
 }

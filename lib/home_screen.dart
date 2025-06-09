@@ -7,11 +7,6 @@ import 'package:untitled1/notifications_tab.dart';
 import 'package:untitled1/profile_tab.dart';
 import 'package:untitled1/tickets_tab.dart';
 import 'package:untitled1/auth_screen.dart';
-import 'package:untitled1/towns_tab.dart';
-import 'package:untitled1/service_types_tab.dart';
-import 'package:untitled1/clusters_tab.dart';
-import 'package:untitled1/sites_tab.dart';
-import 'package:untitled1/device_types_tab.dart';
 
 class HomeScreen extends StatefulWidget {
   final String username;
@@ -27,28 +22,55 @@ class _HomeScreenState extends State<HomeScreen> {
   String _searchQuery = '';
   Timer? _debounce;
 
-  // List of navigation items for the drawer (all items)
-  final List<Map<String, dynamic>> _drawerNavItems = [
+  // Base list of navigation items for both drawer and dashboard cards
+  final List<Map<String, dynamic>> _baseNavItems = [
     {'title': 'Profile', 'icon': Icons.person, 'route': const ProfileTab()},
     {'title': 'Tickets', 'icon': Icons.confirmation_number, 'route': const TicketsTab()},
-    {'title': 'Customers', 'icon': Icons.people, 'route': const CustomersTab()},
+    {
+      'title': 'Customers',
+      'icon': Icons.people,
+      'route': CustomersTab(role: ''), // Placeholder; role is set dynamically
+    },
     {'title': 'Leads', 'icon': Icons.leaderboard, 'route': const LeadsTab()},
     {'title': 'Notifications', 'icon': Icons.notifications, 'route': const NotificationsTab()},
-    {'title': 'Towns', 'icon': Icons.location_city, 'route': const TownsTab()},
-    {'title': 'Service Types', 'icon': Icons.build, 'route': const ServiceTypesTab()},
-    {'title': 'Clusters', 'icon': Icons.group_work, 'route': const ClustersTab()},
-    {'title': 'Sites', 'icon': Icons.location_on, 'route': const SitesTab()},
-    {'title': 'Device Types', 'icon': Icons.devices, 'route': const DeviceTypesTab()},
   ];
 
-  // Base list of navigation items for the dashboard grid
-  final List<Map<String, dynamic>> _baseDashboardNavItems = [
-    {'title': 'Tickets', 'icon': Icons.confirmation_number, 'route': const TicketsTab()},
-    {'title': 'Leads', 'icon': Icons.leaderboard, 'route': const LeadsTab()},
-    {'title': 'Customers', 'icon': Icons.people, 'route': const CustomersTab()},
-    {'title': 'Notifications', 'icon': Icons.notifications, 'route': const NotificationsTab()},
-    {'title': 'Profile', 'icon': Icons.person, 'route': const ProfileTab()},
-  ];
+  // Drawer navigation items, filtered by role
+  List<Map<String, dynamic>> get _drawerNavItems {
+    return _baseNavItems
+        .where((item) {
+          if (widget.role == 'installer' && item['title'] == 'Leads') return false;
+          if (widget.role == 'dse' && item['title'] == 'Tickets') return false;
+          return true;
+        })
+        .map((item) => {
+              ...item,
+              // Override route for CustomersTab to pass role
+              if (item['title'] == 'Customers') 'route': CustomersTab(role: widget.role),
+            })
+        .toList();
+  }
+
+  // Filtered navigation items for dashboard cards, based on role and search query
+  List<Map<String, dynamic>> get _filteredNavItems {
+    List<Map<String, dynamic>> items = _baseNavItems
+        .where((item) {
+          if (widget.role == 'installer' && item['title'] == 'Leads') return false;
+          if (widget.role == 'dse' && item['title'] == 'Tickets') return false;
+          return true;
+        })
+        .map((item) => {
+              ...item,
+              // Override route for CustomersTab to pass role
+              if (item['title'] == 'Customers') 'route': CustomersTab(role: widget.role),
+            })
+        .toList();
+
+    if (_searchQuery.isEmpty) return items;
+    return items
+        .where((item) => item['title'].toString().toLowerCase().contains(_searchQuery.toLowerCase()))
+        .toList();
+  }
 
   @override
   void initState() {
@@ -61,26 +83,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _searchController.dispose();
     _debounce?.cancel();
     super.dispose();
-  }
-
-  // Filter nav items based on user role and search query for the dashboard
-  List<Map<String, dynamic>> get _filteredNavItems {
-    List<Map<String, dynamic>> items;
-
-    // Filter dashboard items based on user role
-    if (widget.role == 'installer') {
-      items = _baseDashboardNavItems.where((item) => item['title'] != 'Leads').toList();
-    } else if (widget.role == 'dse') {
-      items = _baseDashboardNavItems.where((item) => item['title'] != 'Tickets').toList();
-    } else {
-      items = _baseDashboardNavItems; // Default or admin shows all
-    }
-
-    // Further filter based on search query
-    if (_searchQuery.isEmpty) return items;
-    return items
-        .where((item) => item['title'].toString().toLowerCase().contains(_searchQuery.toLowerCase()))
-        .toList();
   }
 
   @override
@@ -164,17 +166,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     ..._drawerNavItems.map((item) => _buildDrawerItem(
-                      icon: item['icon'],
-                      title: item['title'],
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => item['route']),
-                        );
-                      },
-                      primaryColor: primaryColor,
-                    )),
+                          icon: item['icon'],
+                          title: item['title'],
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => item['route']),
+                            );
+                          },
+                          primaryColor: primaryColor,
+                        )),
                     _buildDrawerItem(
                       icon: Icons.logout,
                       title: 'Logout',
