@@ -7,6 +7,7 @@ import 'package:untitled1/notifications_tab.dart';
 import 'package:untitled1/profile_tab.dart';
 import 'package:untitled1/tickets_tab.dart';
 import 'package:untitled1/auth_screen.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class HomeScreen extends StatefulWidget {
   final String username;
@@ -21,61 +22,108 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   Timer? _debounce;
+  final _storage = const FlutterSecureStorage();
+  bool _isAuthenticated = false;
 
-  // Base list of navigation items for both drawer and dashboard cards
-  final List<Map<String, dynamic>> _baseNavItems = [
-    {'title': 'Profile', 'icon': Icons.person, 'route': const ProfileTab()},
-    {'title': 'Tickets', 'icon': Icons.confirmation_number, 'route': const TicketsTab()},
-    {
-      'title': 'Customers',
-      'icon': Icons.people,
-      'route': CustomersTab(role: ''), // Placeholder; role is set dynamically
-    },
-    {'title': 'Leads', 'icon': Icons.leaderboard, 'route': const LeadsTab()},
-    {'title': 'Notifications', 'icon': Icons.notifications, 'route': const NotificationsTab()},
-  ];
+  // --- CHANGE 1: Converted _baseNavItems to a getter to access `widget.role` ---
+  // This is the primary list of all possible navigation items.
+  // The role is now passed directly to the tabs that need it.
+  List<Map<String, dynamic>> get _baseNavItems => [
+        {'title': 'Profile', 'icon': Icons.person, 'route': const ProfileTab()},
+        {'title': 'Tickets', 'icon': Icons.confirmation_number, 'route': TicketsTab(role: widget.role)},
+        {'title': 'Customers', 'icon': Icons.people, 'route': CustomersTab(role: widget.role)},
+        {'title': 'Leads', 'icon': Icons.leaderboard, 'route': const LeadsTab()},
+        {'title': 'Notifications', 'icon': Icons.notifications, 'route': const NotificationsTab()},
+      ];
 
-  // Drawer navigation items, filtered by role
+  // --- CHANGE 2: Simplified the drawer items getter ---
+  // It now just filters the base list by role, as the routes are already correct.
   List<Map<String, dynamic>> get _drawerNavItems {
-    return _baseNavItems
-        .where((item) {
-          if (widget.role == 'installer' && item['title'] == 'Leads') return false;
-          if (widget.role == 'dse' && item['title'] == 'Tickets') return false;
-          return true;
-        })
-        .map((item) => {
-              ...item,
-              // Override route for CustomersTab to pass role
-              if (item['title'] == 'Customers') 'route': CustomersTab(role: widget.role),
-            })
-        .toList();
+    return _baseNavItems.where((item) {
+      // Hide 'Leads' tab for the 'installer' role
+      if (widget.role == 'installer' && item['title'] == 'Leads') {
+        return false;
+      }
+      return true;
+    }).toList();
   }
 
-  // Filtered navigation items for dashboard cards, based on role and search query
+  // --- CHANGE 3: Simplified the filtered (main grid) items getter ---
+  // It starts with the role-filtered list and then applies search and reordering.
   List<Map<String, dynamic>> get _filteredNavItems {
-    List<Map<String, dynamic>> items = _baseNavItems
-        .where((item) {
-          if (widget.role == 'installer' && item['title'] == 'Leads') return false;
-          if (widget.role == 'dse' && item['title'] == 'Tickets') return false;
-          return true;
-        })
-        .map((item) => {
-              ...item,
-              // Override route for CustomersTab to pass role
-              if (item['title'] == 'Customers') 'route': CustomersTab(role: widget.role),
-            })
-        .toList();
+    // Start with the items already filtered by the user's role.
+    final List<Map<String, dynamic>> roleFilteredItems = _drawerNavItems;
 
-    if (_searchQuery.isEmpty) return items;
-    return items
-        .where((item) => item['title'].toString().toLowerCase().contains(_searchQuery.toLowerCase()))
-        .toList();
+    final List<Map<String, dynamic>> searchFilteredItems = _searchQuery.isEmpty
+        ? roleFilteredItems
+        : roleFilteredItems
+            .where((item) => item['title'].toString().toLowerCase().contains(_searchQuery.toLowerCase()))
+            .toList();
+
+    // The reordering logic remains the same.
+    Map<String, dynamic>? profileItem;
+    Map<String, dynamic>? notificationItem;
+    final List<Map<String, dynamic>> otherItems = [];
+
+    for (final item in searchFilteredItems) {
+      final title = item['title'];
+      if (title == 'Profile') {
+        profileItem = item;
+      } else if (title == 'Notifications') {
+        notificationItem = item;
+      } else {
+        otherItems.add(item);
+      }
+    }
+
+    final List<Map<String, dynamic>> reorderedItems = [...otherItems];
+    if (profileItem != null) reorderedItems.add(profileItem);
+    if (notificationItem != null) reorderedItems.add(notificationItem);
+
+    return reorderedItems;
   }
 
   @override
   void initState() {
     super.initState();
-    print('User role: ${widget.role}');
+    _checkAuthentication();
+    print('User role: ${widget.role}'); // Good for debugging
+  }
+
+  Future<void> _checkAuthentication() async {
+    final token = await _storage.read(key: 'auth_token');
+    if (token == null) {
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const AuthScreen()),
+            (route) => false,
+          );
+        });
+      }
+      return;
+    }
+    try {
+      // Your ApiService correctly uses the token from storage, so no need to pass it.
+      await ApiService.getAuthenticatedUser(); // Verify token with server
+      if(mounted) {
+        setState(() {
+          _isAuthenticated = true;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ApiService.logout();
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const AuthScreen()),
+            (route) => false,
+          );
+        });
+      }
+    }
   }
 
   @override
@@ -91,13 +139,17 @@ class _HomeScreenState extends State<HomeScreen> {
     const backgroundColor = Color(0xFFF5F7FA);
     const cardColor = Colors.white;
 
-    // Responsive scaling
     final double scaleFactor = MediaQuery.of(context).textScaleFactor;
     final double devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
     final double screenWidth = MediaQuery.of(context).size.width;
 
-    // Fixed crossAxisCount to 2 for two cards per row
     const int crossAxisCount = 2;
+
+    if (!_isAuthenticated) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator(color: primaryColor)),
+      );
+    }
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -184,9 +236,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         try {
                           await ApiService.logout();
                           Navigator.pop(context);
-                          Navigator.pushReplacement(
+                          Navigator.pushAndRemoveUntil(
                             context,
                             MaterialPageRoute(builder: (context) => const AuthScreen()),
+                            (route) => false,
                           );
                         } catch (e) {
                           ScaffoldMessenger.of(context).showSnackBar(

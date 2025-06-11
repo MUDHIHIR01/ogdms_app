@@ -2,10 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiService {
   static const String baseUrl = 'https://ogdms.extrock.com/api';
-  static String? _token;
+  static const _storage = FlutterSecureStorage();
 
   //
   // ===========================================================================
@@ -13,28 +14,25 @@ class ApiService {
   // ===========================================================================
   //
 
-  /// Returns the standard headers for all requests, including the auth token if available.
-  static Map<String, String> _getHeaders() => {
-        'Content-Type': 'application/json; charset=UTF-8',
-        'Accept': 'application/json',
-        if (_token != null) 'Authorization': 'Bearer $_token',
-      };
+  /// Returns the standard headers for all requests, reading the auth token from secure storage.
+  static Future<Map<String, String>> _getHeaders() async {
+    final token = await _storage.read(key: 'auth_token'); // FIXED: Use 'auth_token'
+    return {
+      'Content-Type': 'application/json; charset=UTF-8',
+      'Accept': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
 
   /// A central method to handle all HTTP requests.
-  /// It manages making the request, handling success, and processing all errors.
   static Future<dynamic> _makeRequest(
     String method,
     String endpoint, {
     Map<String, dynamic>? body,
-    bool requiresAuth = true,
   }) async {
-    if (requiresAuth && _token == null) {
-      throw 'Authentication error. Please log in.';
-    }
-
     try {
       final uri = Uri.parse('$baseUrl$endpoint');
-      final headers = _getHeaders();
+      final headers = await _getHeaders();
       final encodedBody = body != null ? json.encode(body) : null;
       http.Response response;
 
@@ -45,28 +43,27 @@ class ApiService {
         case 'PUT':
           response = await http.put(uri, headers: headers, body: encodedBody).timeout(const Duration(seconds: 15));
           break;
-        case 'DELETE':
-          response = await http.delete(uri, headers: headers, body: encodedBody).timeout(const Duration(seconds: 15));
-          break;
         case 'GET':
         default:
           response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 15));
       }
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        // For successful requests with no content (like a 204), return null.
         if (response.body.isEmpty) return null;
         return json.decode(response.body);
       } else {
-        throw _handleErrorResponse(response);
+        final error = _handleErrorResponse(response);
+        if (response.statusCode == 401 && error.contains('Unauthenticated')) {
+          throw Exception('Unauthenticated');
+        }
+        throw Exception(error);
       }
     } on SocketException {
-      throw 'No Internet Connection. Please check your network and try again.';
+      throw Exception('No Internet Connection. Please check your network and try again.');
     } on TimeoutException {
-      throw 'The server took too long to respond. Please try again later.';
+      throw Exception('The server took too long to respond. Please try again later.');
     } catch (e) {
-      if (e is String) rethrow; // Re-throw custom parsed errors.
-      throw 'An unexpected error occurred: $e';
+      rethrow;
     }
   }
 
@@ -81,7 +78,7 @@ class ApiService {
       if (errorData.containsKey('message')) return errorData['message'];
       if (errorData.containsKey('error')) return errorData['error'];
     } catch (_) {
-      // Fallback if the body isn't JSON or doesn't match expected structure.
+      // Fallback
     }
     return 'Request failed with status: ${response.statusCode}';
   }
@@ -99,15 +96,20 @@ class ApiService {
       'POST',
       '/auth/login',
       body: {'email': email, 'password': password},
-      requiresAuth: false,
     );
-    _token = responseData['access_token'];
+    final token = responseData['access_token'];
+    if (token != null) {
+      await _storage.write(key: 'auth_token', value: token);
+    }
     return responseData as Map<String, dynamic>;
   }
 
   static Future<void> logout() async {
-    await _makeRequest('POST', '/auth/logout');
-    _token = null;
+    try {
+      await _makeRequest('POST', '/auth/logout');
+    } finally {
+      await _storage.delete(key: 'auth_token');
+    }
   }
 
   static Future<Map<String, dynamic>> getAuthenticatedUser() async {
@@ -122,9 +124,7 @@ class ApiService {
       'POST',
       '/auth/forgot_password',
       body: {'email': email},
-      requiresAuth: false,
     );
-    // Matching the original method's return type.
     return responseData['token'] as String;
   }
 
@@ -133,13 +133,12 @@ class ApiService {
       'POST',
       '/auth/reset_password',
       body: {'email': email, 'token': token, 'password': password, 'password_confirmation': passwordConfirmation},
-      requiresAuth: false,
     );
     return response as Map<String, dynamic>;
   }
 
   static Future<Map<String, dynamic>> verifyEmail(String id, String hash) async {
-    final response = await _makeRequest('GET', '/auth/email/verify/$id/$hash', requiresAuth: false);
+    final response = await _makeRequest('GET', '/auth/email/verify/$id/$hash');
     return response as Map<String, dynamic>;
   }
 
@@ -249,25 +248,16 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> createTicket(Map<String, dynamic> ticketData) async {
-  final filteredTicketData = {
-    'customer_id': ticketData['customer_id'],
-    'service_type_id': ticketData['service_type_id'],
-    if (ticketData['notes'] != null && ticketData['notes'].isNotEmpty) 'notes': ticketData['notes'],
-  };
-  final response = await _makeRequest('POST', '/tickets', body: filteredTicketData);
-  return response as Map<String, dynamic>;
-}
-
+    final response = await _makeRequest('POST', '/tickets', body: ticketData);
+    return response as Map<String, dynamic>;
+  }
 
   static Future<Map<String, dynamic>> updateTicket(String id, Map<String, dynamic> ticketData) async {
     final response = await _makeRequest('PUT', '/tickets/$id', body: ticketData);
     return response as Map<String, dynamic>;
   }
 
-  static Future<Map<String, dynamic>> deleteTicket(String id) async {
-    final response = await _makeRequest('DELETE', '/tickets/$id');
-    return response as Map<String, dynamic>;
-  }
+  // REMOVED: deleteTicket method as neither dse nor installer should delete tickets
 
   // --- Notifications ---
   
