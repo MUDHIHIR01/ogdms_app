@@ -24,6 +24,7 @@ dependencies:
   geolocator: ^11.0.0
   flutter_secure_storage: ^9.2.4
   image_picker: ^1.0.7 # Add this line
+  http_parser: ^4.1.2
 
 dev_dependencies:
   flutter_test:

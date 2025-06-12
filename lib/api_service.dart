@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http_parser/http_parser.dart';
+import 'package:image_picker/image_picker.dart';
+
 
 class ApiService {
   static const String baseUrl = 'https://ogdms.extrock.com/api';
@@ -264,5 +267,79 @@ class ApiService {
   static Future<List<Map<String, dynamic>>> getNotifications() async {
     final response = await _makeRequest('GET', '/notifications');
     return List<Map<String, dynamic>>.from(response);
+  }
+
+
+  /// Updates the status of a specific ticket.
+  ///
+  /// For 'scheduled' status, a [scheduledAt] timestamp in 'yyyy-MM-dd HH:mm:ss' format is required.
+  static Future<Map<String, dynamic>> updateTicketStatus(String ticketId, String newStatus, {String? scheduledAt}) async {
+    final body = <String, dynamic>{
+      'status': newStatus,
+    };
+    if (scheduledAt != null) {
+      body['scheduled_at'] = scheduledAt;
+    }
+    // Note: We use a different endpoint as per the API spec.
+    final response = await _makeRequest('POST', '/tickets/$ticketId/status', body: body);
+    return response as Map<String, dynamic>;
+  }
+
+  // --- NEW: Installation Photo Upload ---
+
+  /// Uploads installation photos for a ticket.
+  ///
+  /// This method uses a multipart request to send files.
+  /// The [photos] parameter should be a list of maps, with each map containing:
+  /// - 'type': A String (e.g., 'Antenna Mount').
+  /// - 'file': An XFile object from image_picker.
+  static Future<Map<String, dynamic>> uploadInstallationPhotos(String ticketId, List<Map<String, dynamic>> photos) async {
+    final uri = Uri.parse('$baseUrl/tickets/$ticketId/photos');
+    final headers = await _getHeaders();
+    // We remove the 'Content-Type' header because the multipart request sets its own with a boundary.
+    headers.remove('Content-Type');
+
+    final request = http.MultipartRequest('POST', uri);
+    request.headers.addAll(headers);
+
+    // Add photos to the request
+    for (int i = 0; i < photos.length; i++) {
+      final photo = photos[i];
+      final file = photo['file'] as XFile;
+      final type = photo['type'] as String;
+
+      // Add the file stream
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'photos[$i][file]', // The field name expected by the backend
+          file.path,
+          contentType: MediaType('image', 'jpeg'), // Or determine from file extension
+        ),
+      );
+      // Add the associated type
+      request.fields['photos[$i][type]'] = type;
+    }
+
+    try {
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 60)); // Longer timeout for uploads
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        if (response.body.isEmpty) return {};
+        return json.decode(response.body);
+      } else {
+        final error = _handleErrorResponse(response);
+        if (response.statusCode == 401 && error.contains('Unauthenticated')) {
+          throw Exception('Unauthenticated');
+        }
+        throw Exception(error);
+      }
+    } on SocketException {
+      throw Exception('No Internet Connection. Please check your network and try again.');
+    } on TimeoutException {
+      throw Exception('The upload took too long to respond. Please try again later.');
+    } catch (e) {
+      rethrow;
+    }
   }
 }

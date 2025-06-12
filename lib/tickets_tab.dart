@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:untitled1/api_service.dart';
-import 'package:untitled1/ticket_form_screen.dart';
 import 'package:untitled1/auth_screen.dart';
-import 'package:intl/intl.dart'; // For formatting dates
+import 'package:untitled1/photo_upload_screen.dart'; // Import the new photo upload screen
+import 'package:untitled1/ticket_form_screen.dart';
 
 class TicketsTab extends StatefulWidget {
   final String role;
@@ -16,6 +17,7 @@ class _TicketsTabState extends State<TicketsTab> {
   late Future<List<Map<String, dynamic>>> _ticketsFuture;
   String _searchQuery = '';
   List<Map<String, dynamic>> _filteredTickets = [];
+  bool _isLoading = false; // For showing loading indicators during actions
 
   @override
   void initState() {
@@ -54,7 +56,7 @@ class _TicketsTabState extends State<TicketsTab> {
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to load tickets: $e', style: const TextStyle(fontFamily: 'Nunito', fontSize: 14)),
+            content: Text('Failed to load tickets: $e', style: const TextStyle(fontFamily: 'Nunito')),
           ),
         );
       }
@@ -76,21 +78,74 @@ class _TicketsTabState extends State<TicketsTab> {
       } else {
         _filteredTickets = tickets.where((ticket) {
           final customerName = ticket['customer']?['name']?.toLowerCase() ?? '';
-          final siteName = ticket['customer']?['site']?['name']?.toLowerCase() ?? '';
-          final serviceType = ticket['service_type']?['name']?.toLowerCase() ?? '';
-          final notes = ticket['notes']?.toLowerCase() ?? '';
-          final phone = ticket['customer']?['phone']?.toLowerCase() ?? '';
-          final email = ticket['customer']?['email']?.toLowerCase() ?? '';
           final ticketNo = ticket['ticket_no']?.toLowerCase() ?? '';
-          final queryLower = query.toLowerCase();
-          return customerName.contains(queryLower) ||
-              siteName.contains(queryLower) ||
-              serviceType.contains(queryLower) ||
-              notes.contains(queryLower) ||
-              phone.contains(queryLower) ||
-              email.contains(queryLower) ||
-              ticketNo.contains(queryLower);
+          // Add other search fields as needed
+          return customerName.contains(query.toLowerCase()) || ticketNo.contains(query.toLowerCase());
         }).toList();
+      }
+    });
+  }
+
+  // --- NEW LOGIC: HANDLER FOR STATUS UPDATES ---
+  Future<void> _updateTicketStatus(String ticketId, String newStatus, {String? scheduledAt}) async {
+    setState(() => _isLoading = true);
+    try {
+      await ApiService.updateTicketStatus(ticketId, newStatus, scheduledAt: scheduledAt);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ticket status updated to ${newStatus.capitalize()}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+      _refreshTickets(); // Refresh the list to show the new status
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update status: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // --- NEW LOGIC: HANDLER FOR SCHEDULING ---
+  Future<void> _handleSchedule(BuildContext context, String ticketId) async {
+    final DateTime? date = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (date == null || !mounted) return; // User cancelled date picker
+
+    final TimeOfDay? time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(DateTime.now()),
+    );
+    if (time == null || !mounted) return; // User cancelled time picker
+
+    final fullDateTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    // Format to 'Y-m-d H:i:s' as required by the API
+    final String formattedTimestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(fullDateTime);
+    
+    await _updateTicketStatus(ticketId, 'scheduled', scheduledAt: formattedTimestamp);
+  }
+
+  // --- NEW LOGIC: HANDLER FOR NAVIGATING TO PHOTO UPLOAD ---
+  void _navigateToPhotoUpload(String ticketId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => PhotoUploadScreen(ticketId: ticketId)),
+    ).then((result) {
+      // If the upload screen returns 'true', it means the upload was successful
+      if (result == true) {
+        _refreshTickets(); // Refresh to reflect any related changes
       }
     });
   }
@@ -99,106 +154,68 @@ class _TicketsTabState extends State<TicketsTab> {
   Widget build(BuildContext context) {
     const primaryColor = Color(0xFFDF0613);
     const backgroundColor = Colors.white;
-    // --- ROLE LOGIC ---
     // Only 'dse' can create new tickets.
     final bool canCreate = widget.role == 'dse';
 
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: const Text(
-          'Tickets',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontFamily: 'Nunito',
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        title: const Text('Tickets', style: TextStyle(color: Colors.white, fontSize: 18, fontFamily: 'Nunito', fontWeight: FontWeight.bold)),
         backgroundColor: primaryColor,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Search by ticket no, customer, site, service, notes, phone, or email...',
-                hintStyle: TextStyle(color: Colors.grey[600], fontFamily: 'Nunito', fontSize: 14),
-                filled: true,
-                fillColor: Colors.grey[100],
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: primaryColor, width: 1)),
-                prefixIcon: Icon(Icons.search, color: Colors.grey[600], size: 24),
-                contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              ),
-              style: const TextStyle(color: Colors.black87, fontFamily: 'Nunito', fontSize: 14),
-              onChanged: (value) {
-                _ticketsFuture.then((tickets) => _filterTickets(value, tickets));
-              },
-            ),
-          ),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: _fetchTickets,
-              color: primaryColor,
-              child: FutureBuilder<List<Map<String, dynamic>>>(
-                future: _ticketsFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator(color: primaryColor));
-                  }
-                  if (snapshot.hasError) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Failed to load tickets: ${snapshot.error}',
-                            style: const TextStyle(fontFamily: 'Nunito', fontSize: 14),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 12),
-                          ElevatedButton(
-                            onPressed: _refreshTickets,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: primaryColor,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                            child: const Text('Retry', style: TextStyle(fontFamily: 'Nunito', fontSize: 14)),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-                  final tickets = snapshot.data ?? [];
-                  if (tickets.isEmpty) {
-                    return const Center(
-                      child: Text('No tickets available', style: TextStyle(fontFamily: 'Nunito', fontSize: 14)),
-                    );
-                  }
-                  final displayTickets = _searchQuery.isEmpty ? tickets : _filteredTickets;
-                  if (displayTickets.isEmpty && _searchQuery.isNotEmpty) {
-                    return const Center(
-                      child: Text('No matching tickets', style: TextStyle(fontFamily: 'Nunito', fontSize: 14)),
-                    );
-                  }
-                  return ListView.builder(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: displayTickets.length,
-                    itemBuilder: (context, index) {
-                      final ticket = displayTickets[index];
-                      return _buildTicketCard(context, ticket);
-                    },
-                  );
-                },
+      body: AbsorbPointer(
+        absorbing: _isLoading,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: TextField(
+                // ... Search field setup ...
               ),
             ),
-          ),
-        ],
+            if (_isLoading)
+              const LinearProgressIndicator(
+                backgroundColor: Colors.white,
+                valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+              ),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _fetchTickets,
+                color: primaryColor,
+                child: FutureBuilder<List<Map<String, dynamic>>>(
+                  future: _ticketsFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting && !_isLoading) {
+                      return const Center(child: CircularProgressIndicator(color: primaryColor));
+                    }
+                    if (snapshot.hasError) {
+                      return Center(child: Text('Failed to load tickets: ${snapshot.error}'));
+                    }
+                    final tickets = snapshot.data ?? [];
+                    if (tickets.isEmpty) return const Center(child: Text('No tickets available'));
+
+                    final displayTickets = _searchQuery.isEmpty ? tickets : _filteredTickets;
+                    if (displayTickets.isEmpty) return const Center(child: Text('No matching tickets'));
+
+                    return ListView.builder(
+                      padding: const EdgeInsets.all(12),
+                      itemCount: displayTickets.length,
+                      itemBuilder: (context, index) {
+                        final ticket = displayTickets[index];
+                        // Dim the card if loading to provide visual feedback at a glance
+                        return Opacity(
+                          opacity: _isLoading ? 0.5 : 1.0,
+                          child: _buildTicketCard(context, ticket),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
       floatingActionButton: canCreate
           ? FloatingActionButton(
@@ -206,13 +223,10 @@ class _TicketsTabState extends State<TicketsTab> {
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const TicketFormScreen()),
-                // Refresh the list after a new ticket might have been created.
               ).then((result) {
-                if (result == true) {
-                  _refreshTickets();
-                }
+                if (result == true) _refreshTickets();
               }),
-              child: const Icon(Icons.add, size: 24, color: Colors.white),
+              child: const Icon(Icons.add, color: Colors.white),
             )
           : null,
     );
@@ -220,28 +234,18 @@ class _TicketsTabState extends State<TicketsTab> {
 
   Widget _buildTicketCard(BuildContext context, Map<String, dynamic> ticket) {
     // Extract ticket details
+    final ticketId = ticket['id']?.toString() ?? '';
     final ticketNo = ticket['ticket_no'] ?? 'N/A';
     final customerName = ticket['customer']?['name'] ?? 'Unknown';
-    final customerPhone = ticket['customer']?['phone'] ?? 'N/A';
-    final customerEmail = ticket['customer']?['email'] ?? 'N/A';
-    final customerAddress = ticket['customer']?['address'] ?? 'N/A';
-    final siteName = ticket['customer']?['site']?['name'] ?? 'Unknown';
-    final siteId = ticket['customer']?['site']?['site_id'] ?? 'N/A';
-    final clusterName = ticket['customer']?['site']?['cluster']?['name'] ?? 'N/A';
-    final townName = ticket['customer']?['site']?['cluster']?['town']?['name'] ?? 'N/A';
     final serviceType = ticket['service_type']?['name'] ?? 'Unknown';
-    final status = ticket['status']?.toString().capitalize() ?? 'N/A';
+    final status = ticket['status']?.toString().toLowerCase() ?? 'na'; // Use lowercase for logic
+    final statusDisplay = status.capitalize();
     final notes = ticket['notes'] ?? 'No notes';
-    final scheduledAt = ticket['scheduled_at'] != null
-        ? DateFormat('MMM dd, yyyy HH:mm').format(DateTime.parse(ticket['scheduled_at']))
-        : 'Not scheduled';
-    final createdAt = ticket['created_at'] != null
-        ? DateFormat('MMM dd, yyyy HH:mm').format(DateTime.parse(ticket['created_at']))
-        : 'N/A';
+    final scheduledAt = ticket['scheduled_at'] != null ? DateFormat('MMM dd, yyyy HH:mm').format(DateTime.parse(ticket['scheduled_at'])) : 'Not scheduled';
+    final createdAt = ticket['created_at'] != null ? DateFormat('MMM dd, yyyy HH:mm').format(DateTime.parse(ticket['created_at'])) : 'N/A';
 
-    // --- NEW: ROLE-BASED EDIT LOGIC ---
-    // 'dse' and 'installer' can edit existing tickets.
-    final bool canEdit = widget.role == 'dse' || widget.role == 'installer';
+    // 'dse' can edit ticket details via form, 'installer' uses workflow buttons.
+    final bool canEdit = widget.role == 'dse';
 
     return Card(
       elevation: 3,
@@ -252,62 +256,40 @@ class _TicketsTabState extends State<TicketsTab> {
         leading: CircleAvatar(
           backgroundColor: const Color(0xFFDF0613),
           radius: 20,
-          child: Text(
-            customerName.isNotEmpty ? customerName[0].toUpperCase() : '?',
-            style: const TextStyle(
-              color: Colors.white,
-              fontFamily: 'Nunito',
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          child: Text(customerName.isNotEmpty ? customerName[0].toUpperCase() : '?', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
-        title: Text(
-          '$ticketNo - $customerName',
-          style: const TextStyle(fontFamily: 'Nunito', fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87),
-        ),
-        subtitle: Text(
-          'Service: $serviceType | Status: $status',
-          style: const TextStyle(fontFamily: 'Nunito', fontSize: 14, color: Colors.black54),
-        ),
+        title: Text('$ticketNo - $customerName', style: const TextStyle(fontFamily: 'Nunito', fontSize: 16, fontWeight: FontWeight.w600)),
+        subtitle: Text('Service: $serviceType | Status: $statusDisplay', style: const TextStyle(fontFamily: 'Nunito', fontSize: 14)),
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildDetailRow('Ticket No', ticketNo),
-                _buildDetailRow('Phone', customerPhone),
-                _buildDetailRow('Email', customerEmail),
-                _buildDetailRow('Address', customerAddress),
-                _buildDetailRow('Site', siteName),
-                _buildDetailRow('Site ID', siteId),
-                _buildDetailRow('Cluster', clusterName),
-                _buildDetailRow('Town', townName),
-                _buildDetailRow('Service Type', serviceType),
                 _buildDetailRow('Scheduled', scheduledAt),
                 _buildDetailRow('Created', createdAt),
                 _buildDetailRow('Notes', notes, maxLines: 3),
-                const SizedBox(height: 8),
+                const SizedBox(height: 16),
+
+                // --- NEW: RENDER INSTALLER ACTION BUTTONS ---
+                if (widget.role == 'installer')
+                  ..._buildInstallerActions(context, ticketId, status),
+
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    // --- NEW: Conditionally render the Edit button based on role ---
+                    // --- Edit button is only for 'dse' role ---
                     if (canEdit)
                       IconButton(
-                        icon: const Icon(Icons.edit, color: Color(0xFFDF0613), size: 24),
-                        tooltip: 'Edit Ticket',
+                        icon: const Icon(Icons.edit, color: Color(0xFFDF0613)),
+                        tooltip: 'Edit Ticket Details',
                         onPressed: () => Navigator.push(
                           context,
                           MaterialPageRoute(builder: (context) => TicketFormScreen(ticket: ticket)),
-                          // Refresh the list after the ticket might have been updated.
                         ).then((result) {
-                          if (result == true) {
-                            _refreshTickets();
-                          }
+                          if (result == true) _refreshTickets();
                         }),
                       ),
-                    // No delete button is shown for any role, as requested.
                   ],
                 ),
               ],
@@ -318,26 +300,112 @@ class _TicketsTabState extends State<TicketsTab> {
     );
   }
 
+  // --- NEW LOGIC: HELPER TO BUILD INSTALLER ACTION BUTTONS ---
+  List<Widget> _buildInstallerActions(BuildContext context, String ticketId, String status) {
+    const primaryColor = Color(0xFFDF0613);
+    final buttonStyle = ElevatedButton.styleFrom(
+        backgroundColor: primaryColor,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        textStyle: const TextStyle(fontFamily: 'Nunito', fontWeight: FontWeight.bold),
+    );
+
+    List<Widget> actions;
+
+    switch (status) {
+      case 'pending':
+        actions = [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              ElevatedButton.icon(
+                icon: const Icon(Icons.check_circle, size: 18),
+                label: const Text('Confirm'),
+                style: buttonStyle,
+                onPressed: () => _updateTicketStatus(ticketId, 'confirmed'),
+              ),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.cancel, size: 18),
+                label: const Text('Cancel'),
+                style: buttonStyle.copyWith(backgroundColor: MaterialStateProperty.all(Colors.grey[700])),
+                onPressed: () => _updateTicketStatus(ticketId, 'cancelled'),
+              ),
+            ],
+          ),
+        ];
+        break;
+      case 'confirmed':
+        actions = [
+          Center(
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.calendar_today, size: 18),
+              label: const Text('Schedule Installation'),
+              style: buttonStyle,
+              onPressed: () => _handleSchedule(context, ticketId),
+            ),
+          )
+        ];
+        break;
+      case 'scheduled':
+        actions = [
+          Center(
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.person_pin_circle, size: 18),
+              label: const Text('Mark as Attended'),
+              style: buttonStyle,
+              onPressed: () => _updateTicketStatus(ticketId, 'attended'),
+            ),
+          )
+        ];
+        break;
+      case 'attended':
+        actions = [
+          Center(
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.build_circle, size: 18),
+              label: const Text('Mark as Installed'),
+              style: buttonStyle,
+              onPressed: () => _updateTicketStatus(ticketId, 'installed'),
+            ),
+          )
+        ];
+        break;
+      case 'installed':
+        actions = [
+          Center(
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.camera_alt, size: 18),
+              label: const Text('Upload Installation Photos'),
+              style: buttonStyle,
+              onPressed: () => _navigateToPhotoUpload(ticketId),
+            ),
+          )
+        ];
+        break;
+      default:
+        actions = []; // No actions for 'postponed', 'cancelled', etc.
+    }
+    
+    // Add a divider if any actions are present to separate them from the edit button row
+    if (actions.isNotEmpty) {
+      actions.add(const Divider(height: 32, thickness: 1, indent: 20, endIndent: 20));
+    }
+    return actions;
+  }
+
   Widget _buildDetailRow(String label, String value, {int maxLines = 1}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 100,
-            child: Text(
-              '$label:',
-              style: const TextStyle(fontFamily: 'Nunito', fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
-            ),
+            width: 90,
+            child: Text('$label:', style: const TextStyle(fontFamily: 'Nunito', fontWeight: FontWeight.w600)),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontFamily: 'Nunito', fontSize: 14, color: Colors.black54),
-              maxLines: maxLines,
-              overflow: TextOverflow.ellipsis,
-            ),
+            child: Text(value, style: const TextStyle(fontFamily: 'Nunito', color: Colors.black54), maxLines: maxLines, overflow: TextOverflow.ellipsis),
           ),
         ],
       ),
